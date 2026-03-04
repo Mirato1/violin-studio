@@ -39,7 +39,7 @@ export async function createViolinSynth(): Promise<ViolinSynthEngine> {
       spread: 20,
     },
     envelope: {
-      attack: 0.1,
+      attack: 0.03,
       decay: 0.3,
       sustain: 0.8,
       release: 0.4,

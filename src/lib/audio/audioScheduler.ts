@@ -8,12 +8,13 @@ import type { GameNote } from "@/types/game";
 export function scheduleNotes(
   synth: Tone.PolySynth,
   notes: GameNote[],
-  speed: number
+  speed: number,
+  leadInSec = 0
 ) {
   Tone.getTransport().cancel();
 
   for (const note of notes) {
-    const time = note.startTimeSec / speed;
+    const time = (note.startTimeSec + leadInSec) / speed;
     const duration = Math.max(0.05, note.durationSec / speed);
     const frequency = Tone.Frequency(note.midiNumber, "midi").toFrequency();
 

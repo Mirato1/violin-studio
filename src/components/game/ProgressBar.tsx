@@ -26,7 +26,7 @@ export default function ProgressBar({ getCurrentTime, totalDuration, onSeek, sta
   useEffect(() => {
     const tick = () => {
       if (!draggingRef.current) {
-        const t = getCurrentTime();
+        const t = Math.max(0, getCurrentTime());
         setDisplayTime(t);
         setProgress(totalDuration > 0 ? Math.min(1, t / totalDuration) : 0);
       }

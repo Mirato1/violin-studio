@@ -13,6 +13,15 @@ import {
 
 const STRINGS_ORDER: ViolinString[] = ["G", "D", "A", "E"];
 
+const POSITION_COLORS: Record<number, string> = {
+  2: "rgba(100,220,220,1)",
+  3: "rgba(255,160,60,1)",
+  4: "rgba(180,120,255,1)",
+  5: "rgba(255,80,80,1)",
+  6: "rgba(255,100,200,1)",
+  7: "rgba(160,220,60,1)",
+};
+
 export function drawBackground(ctx: CanvasRenderingContext2D, notation: NotationMode = "abc") {
   // Full dark background
   ctx.fillStyle = "#120e08";
@@ -120,7 +129,7 @@ export function drawNote(
     fillColor = color.glow;
   } else if (note.state === "passed") {
     fillColor = color.faded;
-    alpha = 0.35;
+    alpha = 0.65;
   } else {
     fillColor = color.fill;
   }
@@ -193,12 +202,7 @@ export function drawNote(
   // Position ring + badge for non-1st position notes
   if (note.state !== "passed" && (note.position ?? 1) > 1) {
     const pos = note.position!;
-    const ringColors: Record<number, string> = {
-      2: "rgba(100,220,220,1)",
-      3: "rgba(255,160,60,1)",
-      4: "rgba(180,120,255,1)",
-    };
-    const ringColor = ringColors[pos] ?? "rgba(200,200,200,0.85)";
+    const ringColor = POSITION_COLORS[pos] ?? "rgba(200,200,200,0.85)";
     const ringWidth = 3;
     const ringR = r + ringWidth + 1;
 
@@ -444,12 +448,7 @@ export function drawLeftPanel(
     // Position — color-coded to match ring colors
     const pos = displayNote.position ?? 1;
     const posLabel = POS_NAMES[pos] ?? `${pos}th`;
-    const posPanelColors: Record<number, string> = {
-      2: "rgba(100,220,220,1)",
-      3: "rgba(255,160,60,1)",
-      4: "rgba(180,120,255,1)",
-    };
-    ctx.fillStyle = pos > 1 ? (posPanelColors[pos] ?? "rgba(200,200,200,0.9)") : "rgba(230,215,180,0.35)";
+    ctx.fillStyle = pos > 1 ? (POSITION_COLORS[pos] ?? "rgba(200,200,200,0.9)") : "rgba(230,215,180,0.35)";
     ctx.font = pos > 1 ? "bold 13px sans-serif" : "12px sans-serif";
     ctx.fillText(`${posLabel} pos`, cx, 99);
 
@@ -554,12 +553,7 @@ function _drawNoteSequence(
     // Position ring + badge for non-1st position notes (same colors as falling notes)
     const pos = note.position ?? 1;
     if (pos > 1) {
-      const ringColors: Record<number, string> = {
-        2: "rgba(100,220,220,1)",
-        3: "rgba(255,160,60,1)",
-        4: "rgba(180,120,255,1)",
-      };
-      const ringColor = ringColors[pos] ?? "rgba(200,200,200,0.85)";
+      const ringColor = POSITION_COLORS[pos] ?? "rgba(200,200,200,0.85)";
       const ringW = isActive ? 2.5 : 2;
       const ringR = r + ringW + 1;
       const badgeR = isActive ? 7 : 5;
@@ -590,50 +584,52 @@ function _drawNoteSequence(
 }
 
 function _drawPositionLegend(ctx: CanvasRenderingContext2D) {
-  const legendItems = [
-    { color: "rgba(100,220,220,1)",   label: "2nd pos" },
-    { color: "rgba(255,160,60,1)",    label: "3rd pos" },
-    { color: "rgba(180,120,255,1)",   label: "4th pos" },
+  // 2 columns: [2nd,3rd,4th] left | [5th,6th,7th] right
+  const cols = [
+    [2, 3, 4],
+    [5, 6, 7],
   ];
-  const cx = LEFT_PANEL_WIDTH / 2;
-  const startY = CANVAS_HEIGHT - 95;
-  const ringR = 9;
-  const rowH = 26;
+  const colX = [25, 165]; // ringX for each column
+  const startY = CANVAS_HEIGHT - 75;
+  const ringR = 7;
+  const rowH = 20;
 
   ctx.save();
   ctx.globalAlpha = 1;
 
-  // Header
+  // Header centered
   ctx.fillStyle = "rgba(230,215,180,0.35)";
   ctx.font = "bold 10px sans-serif";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillText("POSITIONS", cx, startY - 10);
+  ctx.fillText("POSITIONS", LEFT_PANEL_WIDTH / 2, startY - 22);
 
-  legendItems.forEach(({ color, label }, i) => {
-    const ly = startY + i * rowH;
-    const ringX = 28;
+  cols.forEach((positions, col) => {
+    const ringX = colX[col];
+    positions.forEach((pos, row) => {
+      const color = POSITION_COLORS[pos] ?? "rgba(200,200,200,0.85)";
+      const ly = startY + row * rowH;
+      const label = ["2nd","3rd","4th","5th","6th","7th"][pos - 2];
 
-    // Ring (matches note visual)
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 2.5;
-    ctx.beginPath();
-    ctx.arc(ringX, ly, ringR, 0, Math.PI * 2);
-    ctx.stroke();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(ringX, ly, ringR, 0, Math.PI * 2);
+      ctx.stroke();
 
-    // Number inside
-    ctx.fillStyle = color;
-    ctx.font = `bold 10px sans-serif`;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(String(i + 2), ringX, ly);
+      ctx.fillStyle = color;
+      ctx.font = "bold 9px sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(String(pos), ringX, ly);
 
-    // Label
-    ctx.fillStyle = "rgba(230,215,180,0.7)";
-    ctx.font = "12px sans-serif";
-    ctx.textAlign = "left";
-    ctx.fillText(label, ringX + ringR + 8, ly);
+      ctx.fillStyle = "rgba(230,215,180,0.7)";
+      ctx.font = "11px sans-serif";
+      ctx.textAlign = "left";
+      ctx.fillText(label, ringX + ringR + 5, ly);
+    });
   });
+
   ctx.restore();
 }
 

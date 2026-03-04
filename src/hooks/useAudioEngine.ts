@@ -21,9 +21,9 @@ export function useAudioEngine() {
     initializedRef.current = true;
   }, []);
 
-  const schedule = useCallback((notes: GameNote[], speed: number) => {
+  const schedule = useCallback((notes: GameNote[], speed: number, leadInSec = 0) => {
     if (!engineRef.current) return;
-    scheduleNotes(engineRef.current.synth, notes, speed);
+    scheduleNotes(engineRef.current.synth, notes, speed, leadInSec);
   }, []);
 
   const play = useCallback(() => {

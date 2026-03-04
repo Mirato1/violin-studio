@@ -13,6 +13,14 @@ import {
 } from "@/components/ui/select";
 import { Music2, Trash2, Upload } from "lucide-react";
 import { listLocalSongs, type LocalSongMeta } from "@/lib/localSongs";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 interface SavedSong {
   _id: string;
@@ -44,6 +52,7 @@ export default function SongSelector({
   const [localSongs, setLocalSongs] = useState<LocalSongMeta[]>([]);
   const [uploading, setUploading] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const refreshSongs = useCallback(() => {
@@ -73,8 +82,8 @@ export default function SongSelector({
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  const handleDelete = async () => {
-    if (!window.confirm("Delete this song?")) return;
+  const handleDeleteConfirm = async () => {
+    setConfirmOpen(false);
     setDeleting(true);
     try {
       await onDeleteSong(selectedSongId);
@@ -118,7 +127,7 @@ export default function SongSelector({
                 variant="ghost"
                 size="icon-sm"
                 className="text-destructive hover:text-destructive"
-                onClick={handleDelete}
+                onClick={() => setConfirmOpen(true)}
                 disabled={deleting}
               >
                 <Trash2 className="size-4" />
@@ -174,6 +183,25 @@ export default function SongSelector({
           onChange={handleFileChange}
         />
       </div>
+
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent showCloseButton={false} className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Delete song</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this song? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteConfirm}>
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </TooltipProvider>
   );
 }
