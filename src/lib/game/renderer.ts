@@ -14,6 +14,29 @@ import {
 
 const STRINGS_ORDER: ViolinString[] = ["G", "D", "A", "E"];
 
+/** Open-string MIDI numbers for detecting low/high finger variants */
+const OPEN_STRING_MIDI: Record<string, number> = { G: 55, D: 62, A: 69, E: 76 };
+const POS_BASE: Record<number, number> = { 1: 2, 2: 4, 3: 5, 4: 7 };
+
+/**
+ * Detect if a note is a "low" finger variant (half step below normal position).
+ * For fingers 1,2,4 there are two placements: "low" and "high".
+ * Low variants are: finger1 at base-1, finger2 at base+1, finger4 at base+4.
+ */
+function isLowFingerVariant(note: GameNote): boolean {
+  if (note.finger === 0 || note.finger === 3) return false;
+  const open = OPEN_STRING_MIDI[note.string];
+  if (open == null) return false;
+  const semiAbove = note.midiNumber - open;
+  const pos = note.position ?? 1;
+  const base = POS_BASE[pos] ?? 2;
+  // Low deltas from base for each finger
+  if (note.finger === 1) return semiAbove === base - 1;
+  if (note.finger === 2) return semiAbove === base + 1;
+  if (note.finger === 4) return semiAbove === base + 4;
+  return false;
+}
+
 const POSITION_COLORS: Record<number, string> = {
   1: "rgba(220,180,60,1)",
   2: "rgba(100,220,220,1)",
@@ -185,21 +208,34 @@ export function drawNote(
   // Draw text (finger number or note name)
   ctx.shadowBlur = 0;
   ctx.shadowColor = "transparent";
+
+  // Determine label: show "L2" for low finger variants, "2" for high/single
+  let label: string;
+  if (showFingers) {
+    const isLow = isLowFingerVariant(note);
+    label = isLow ? `L${note.finger}` : String(note.finger);
+  } else {
+    label = toNotation(note.noteName.replace(/\d/, ""), notation);
+  }
+
+  // Use dark text for A string (amber) — cream on amber has poor contrast
+  const isAmber = note.string === "A";
+  const textColor = isAmber ? "#1a1000" : "#f5e6c8";
+  const shadowColor = isAmber ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.5)";
+
   if (note.state !== "passed") {
-    ctx.fillStyle = "rgba(0,0,0,0.5)";
+    ctx.fillStyle = shadowColor;
     ctx.font = `bold ${fontSize}px sans-serif`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    const label = showFingers ? String(note.finger) : toNotation(note.noteName.replace(/\d/, ""), notation);
     ctx.fillText(label, x + 0.5, y + 0.5);
-    ctx.fillStyle = "#f5e6c8";
+    ctx.fillStyle = textColor;
     ctx.fillText(label, x, y);
   } else {
-    ctx.fillStyle = "rgba(230,215,180,0.4)";
+    ctx.fillStyle = isAmber ? "rgba(26,16,0,0.4)" : "rgba(230,215,180,0.4)";
     ctx.font = "bold 16px sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    const label = showFingers ? String(note.finger) : toNotation(note.noteName.replace(/\d/, ""), notation);
     ctx.fillText(label, x, y);
   }
 

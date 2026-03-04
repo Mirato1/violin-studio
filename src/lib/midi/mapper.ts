@@ -1,8 +1,179 @@
 import type { MidiFile } from "./types";
 import type { GameNote } from "@/types/game";
-import { findNoteByMidi, VIOLIN_NOTES } from "@/data/violinNotes";
+import type { ViolinString } from "@/types/violin";
+import { findNoteByMidi, VIOLIN_NOTES, OPEN_MIDI, deriveNoteOnString } from "@/data/violinNotes";
 
 const STRING_TO_LANE: Record<string, number> = { G: 0, D: 1, A: 2, E: 3 };
+const ALL_STRINGS: ViolinString[] = ["G", "D", "A", "E"];
+const POSITION_BASE: Record<number, number> = { 1: 2, 2: 4, 3: 5, 4: 7 };
+
+/** Finger deltas from position base semitone */
+const FINGER_DELTAS = [
+  { finger: 1, delta: -1 }, { finger: 1, delta: 0 },
+  { finger: 2, delta: 1 },  { finger: 2, delta: 2 },
+  { finger: 3, delta: 3 },
+  { finger: 4, delta: 4 },  { finger: 4, delta: 5 },
+];
+
+interface Candidate {
+  string: ViolinString;
+  finger: number;
+  position: number;
+  staffPosition: number;
+  accidental?: "sharp" | "flat";
+  name: string;
+  displayName: string;
+}
+
+/**
+ * Find ALL possible (string, position, finger) combinations for a MIDI number.
+ * Returns candidates across strings and positions 1–4.
+ */
+function findAllCandidates(midi: number): Candidate[] {
+  const candidates: Candidate[] = [];
+  for (const s of ALL_STRINGS) {
+    const open = OPEN_MIDI[s];
+    const semiAbove = midi - open;
+    if (semiAbove < 0 || semiAbove > 12) continue; // out of range for this string
+
+    for (const pos of [1, 2, 3, 4] as const) {
+      const base = POSITION_BASE[pos];
+      for (const fd of FINGER_DELTAS) {
+        if (base + fd.delta === semiAbove) {
+          const derived = deriveNoteOnString(midi, s);
+          candidates.push({
+            string: s,
+            finger: fd.finger,
+            position: pos,
+            staffPosition: derived.staffPosition,
+            accidental: derived.accidental,
+            name: derived.name,
+            displayName: derived.displayName,
+          });
+        }
+      }
+      // Also check open string (finger 0)
+      if (semiAbove === 0) {
+        const derived = deriveNoteOnString(midi, s);
+        candidates.push({
+          string: s,
+          finger: 0,
+          position: 1,
+          staffPosition: derived.staffPosition,
+          accidental: derived.accidental,
+          name: derived.name,
+          displayName: derived.displayName,
+        });
+      }
+    }
+  }
+  // Deduplicate (same string+finger+position)
+  const seen = new Set<string>();
+  return candidates.filter((c) => {
+    const key = `${c.string}-${c.finger}-${c.position}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+const STRING_IDX: Record<string, number> = { G: 0, D: 1, A: 2, E: 3 };
+
+/**
+ * Score a candidate based on musical context (position continuity, string proximity).
+ * Higher score = better choice.
+ */
+function scoreCandidate(
+  c: Candidate,
+  lastString: string | undefined,
+  lastPosition: number,
+): number {
+  let score = 0;
+
+  // Strong preference for staying in the same position (avoid shifts)
+  if (c.position === lastPosition) score += 100;
+  // Small penalty for each position step of shift
+  else score -= Math.abs(c.position - lastPosition) * 20;
+
+  // Prefer same or adjacent string
+  if (lastString) {
+    const dist = Math.abs(STRING_IDX[c.string] - STRING_IDX[lastString]);
+    if (dist === 0) score += 15; // same string
+    else if (dist === 1) score += 5; // adjacent
+    else score -= dist * 5; // far string crossing
+  }
+
+  // Small bonus for lower positions (easier for beginners)
+  score -= c.position * 2;
+
+  // Prefer open strings when they match (easiest)
+  if (c.finger === 0) score += 10;
+
+  // Penalize finger 4 — it's awkward and usually means a position shift is better
+  if (c.finger === 4) score -= 25;
+
+  return score;
+}
+
+/**
+ * Find the best (most comfortable) finger for a MIDI note in a given position.
+ * Returns 0-3 for comfortable fingers, 4 for pinky, or -1 if not reachable.
+ */
+function bestFingerInPosition(midi: number, position: number): number {
+  for (const s of ALL_STRINGS) {
+    const open = OPEN_MIDI[s];
+    const semi = midi - open;
+    if (semi < 0 || semi > 12) continue;
+    if (semi === 0) return 0; // open string
+    const base = POSITION_BASE[position];
+    // First pass: prefer fingers 1-3
+    for (const fd of FINGER_DELTAS) {
+      if (base + fd.delta === semi && fd.finger < 4) return fd.finger;
+    }
+    // Second pass: accept finger 4
+    for (const fd of FINGER_DELTAS) {
+      if (base + fd.delta === semi) return fd.finger;
+    }
+  }
+  return -1;
+}
+
+/**
+ * Analyze the first N notes to determine the best starting position.
+ * Picks the position where the most notes can be played with comfortable fingers.
+ */
+function chooseStartingPosition(midis: number[]): number {
+  let bestPos = 1, bestScore = -Infinity;
+  for (const pos of [1, 2, 3, 4] as const) {
+    let score = 0;
+    for (const midi of midis) {
+      const f = bestFingerInPosition(midi, pos);
+      if (f === -1) score -= 15;
+      else if (f === 0) score += 30;
+      else if (f <= 3) score += 25;
+      else score += 5; // finger 4
+    }
+    score -= pos * 2; // slight lower-position preference
+    if (score > bestScore) { bestScore = score; bestPos = pos; }
+  }
+  return bestPos;
+}
+
+/**
+ * Score upcoming notes by finger quality in a given position.
+ * Comfortable fingers (0-3) score much higher than finger 4.
+ */
+function lookAheadBonus(position: number, upcomingMidis: number[]): number {
+  let bonus = 0;
+  for (const midi of upcomingMidis) {
+    const f = bestFingerInPosition(midi, position);
+    if (f === -1) bonus -= 15;
+    else if (f === 0) bonus += 30;
+    else if (f <= 3) bonus += 25;
+    else bonus += 5; // finger 4
+  }
+  return bonus;
+}
 
 const MIN_MIDI = Math.min(...VIOLIN_NOTES.map((n) => n.midiNumber)); // 55 (G3)
 const MAX_MIDI = Math.max(...VIOLIN_NOTES.map((n) => n.midiNumber)); // 93 (A6)
@@ -186,17 +357,63 @@ export function mapMidiToViolin(midi: MidiFile, title: string = "Untitled", trac
   // Sort by start time
   rawNotes.sort((a, b) => a.tickStart - b.tickStart);
 
-  // Map to GameNote with violin assignments
+  // Pre-compute clamped MIDI values for look-ahead
+  const clampedMidis: (number | null)[] = rawNotes.map((r) => clampToRange(r.midi));
+
+  // Determine best starting position from first ~8 playable notes
+  const firstMidis: number[] = [];
+  for (let j = 0; j < clampedMidis.length && firstMidis.length < 8; j++) {
+    if (clampedMidis[j] !== null) firstMidis.push(clampedMidis[j]!);
+  }
+
+  // Map to GameNote with violin assignments using position-aware scoring + look-ahead
   let lastString: string | undefined;
+  let lastPosition = firstMidis.length > 0 ? chooseStartingPosition(firstMidis) : 1;
   const notes: GameNote[] = [];
 
   for (let i = 0; i < rawNotes.length; i++) {
+    const clamped = clampedMidis[i];
+    if (clamped === null) continue;
     const raw = rawNotes[i];
-    const clamped = clampToRange(raw.midi);
-    if (clamped === null) continue; // skip notes too far outside violin range
 
-    const vNote = findNoteByMidi(clamped, lastString);
-    if (!vNote) continue; // skip unmappable notes
+    // Gather the next few MIDI notes for look-ahead scoring
+    const LOOK_AHEAD = 5;
+    const upcomingMidis: number[] = [];
+    for (let j = i + 1; j < rawNotes.length && upcomingMidis.length < LOOK_AHEAD; j++) {
+      const m = clampedMidis[j];
+      if (m !== null) upcomingMidis.push(m);
+    }
+
+    // Find all possible fingerings and pick the best one
+    const candidates = findAllCandidates(clamped);
+    let best: Candidate | undefined;
+
+    if (candidates.length > 0) {
+      let bestScore = -Infinity;
+      for (const c of candidates) {
+        let s = scoreCandidate(c, lastString, lastPosition);
+        // Add look-ahead bonus: prefer positions that work for upcoming notes too
+        if (upcomingMidis.length > 0) {
+          s += lookAheadBonus(c.position, upcomingMidis);
+        }
+        if (s > bestScore) { bestScore = s; best = c; }
+      }
+    }
+
+    // Fallback to original findNoteByMidi if no candidates
+    if (!best) {
+      const vNote = findNoteByMidi(clamped, lastString);
+      if (!vNote) continue;
+      best = {
+        string: vNote.string as ViolinString,
+        finger: typeof vNote.finger === 'number' ? vNote.finger : 0,
+        position: vNote.position ?? 1,
+        staffPosition: vNote.staffPosition,
+        accidental: vNote.accidental,
+        name: vNote.name,
+        displayName: vNote.displayName,
+      };
+    }
 
     const startTimeSec = tickToSec(raw.tickStart, tempoMap, ticksPerBeat);
     const endTimeSec = tickToSec(raw.tickEnd, tempoMap, ticksPerBeat);
@@ -204,21 +421,22 @@ export function mapMidiToViolin(midi: MidiFile, title: string = "Untitled", trac
     notes.push({
       id: `note-${i}`,
       midiNumber: clamped,
-      noteName: vNote.name,
-      string: vNote.string,
-      finger: vNote.finger,
-      lane: STRING_TO_LANE[vNote.string],
+      noteName: best.name,
+      string: best.string,
+      finger: best.finger,
+      lane: STRING_TO_LANE[best.string],
       startTimeSec,
       durationSec: Math.max(0.05, endTimeSec - startTimeSec),
       y: 0,
       tailHeight: 0,
       state: "upcoming",
-      staffPosition: vNote.staffPosition,
-      accidental: vNote.accidental,
-      position: vNote.position,
+      staffPosition: best.staffPosition,
+      accidental: best.accidental,
+      position: best.position === 1 ? undefined : best.position,
     });
 
-    lastString = vNote.string;
+    lastString = best.string;
+    lastPosition = best.position;
   }
 
   const bpm = Math.round(60_000_000 / tempoMap[0].microsecondsPerBeat);
