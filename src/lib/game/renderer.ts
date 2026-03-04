@@ -117,19 +117,20 @@ export function drawNote(
   // Skip if completely off screen
   if (y + NOTE_RADIUS < 0 || y - note.tailHeight > CANVAS_HEIGHT + NOTE_RADIUS) return;
 
-  // Scale note size by proximity to hit line (far = small, close = full size)
-  let scale = 1.0;
+  // Opacity fade: distant notes are faint, become fully opaque near the hit line
+  let noteAlpha = 1.0;
   if (note.state === "upcoming") {
-    const scaleZoneTop = 40;
-    const scaleZoneFull = HIT_LINE_Y - 100;
-    scale = y <= scaleZoneTop ? 0.45
-          : y >= scaleZoneFull ? 1.0
-          : 0.45 + 0.55 * ((y - scaleZoneTop) / (scaleZoneFull - scaleZoneTop));
+    const FADE_TOP = 60;
+    const FADE_FULL = HIT_LINE_Y - 120;
+    noteAlpha = y <= FADE_TOP ? 0.35
+              : y >= FADE_FULL ? 1.0
+              : 0.35 + 0.65 * ((y - FADE_TOP) / (FADE_FULL - FADE_TOP));
   }
-  const r = NOTE_RADIUS * scale;
-  const fontSize = Math.max(9, Math.round(20 * scale));
+  const r = NOTE_RADIUS;
+  const fontSize = 20;
 
   ctx.save();
+  ctx.globalAlpha = noteAlpha;
 
   // Determine alpha and colors based on state
   let fillColor: string;
@@ -144,10 +145,10 @@ export function drawNote(
   } else {
     fillColor = color.fill;
     ctx.shadowColor = color.fill;
-    ctx.shadowBlur = 6 * scale;
+    ctx.shadowBlur = 6;
   }
 
-  ctx.globalAlpha = alpha;
+  ctx.globalAlpha = noteAlpha * alpha;
 
   // Draw tail (duration trail) - extends upward from the note
   if (note.tailHeight > 0) {
@@ -160,7 +161,7 @@ export function drawNote(
     tailGrad.addColorStop(1, fillColor);
 
     ctx.fillStyle = tailGrad;
-    ctx.globalAlpha = alpha * 0.3;
+    ctx.globalAlpha = noteAlpha * alpha * 0.3;
     ctx.beginPath();
     ctx.roundRect(
       x - tailWidth / 2,
@@ -170,11 +171,11 @@ export function drawNote(
       tailWidth / 2
     );
     ctx.fill();
-    ctx.globalAlpha = alpha;
+    ctx.globalAlpha = noteAlpha * alpha;
   }
 
   // Draw note circle with radial gradient
-  const grad = ctx.createRadialGradient(x - 3 * scale, y - 3 * scale, 2, x, y, r);
+  const grad = ctx.createRadialGradient(x - 3, y - 3, 2, x, y, r);
   grad.addColorStop(0, note.state === "active" ? "#f5e6c8" : color.glow);
   grad.addColorStop(0.4, fillColor);
   grad.addColorStop(1, note.state === "passed" ? color.faded : color.fill);
@@ -221,7 +222,7 @@ export function drawNote(
       4: "rgba(180,120,255,1)",
     };
     const ringColor = ringColors[pos] ?? "rgba(200,200,200,0.85)";
-    const ringWidth = Math.max(1.5, 3 * scale);
+    const ringWidth = 3;
     const ringR = r + ringWidth + 1;
 
     ctx.shadowBlur = 0;
@@ -232,20 +233,18 @@ export function drawNote(
     ctx.arc(x, y, ringR, 0, Math.PI * 2);
     ctx.stroke();
 
-    // Number badge on the ring at top-right (only when big enough to read)
-    if (scale > 0.6) {
-      const bx = x + ringR * 0.72;
-      const by = y - ringR * 0.72;
-      ctx.fillStyle = "rgba(15,10,5,0.9)";
-      ctx.beginPath();
-      ctx.arc(bx, by, 10 * scale, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = ringColor;
-      ctx.font = `bold ${Math.round(11 * scale)}px sans-serif`;
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText(String(pos), bx, by);
-    }
+    // Number badge on the ring at top-right
+    const bx = x + ringR * 0.72;
+    const by = y - ringR * 0.72;
+    ctx.fillStyle = "rgba(15,10,5,0.9)";
+    ctx.beginPath();
+    ctx.arc(bx, by, 10, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = ringColor;
+    ctx.font = "bold 11px sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(String(pos), bx, by);
   }
 
   ctx.restore();
