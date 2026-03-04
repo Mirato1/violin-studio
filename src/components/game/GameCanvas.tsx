@@ -130,7 +130,8 @@ export default function GameCanvas() {
           }
 
           const activeIdx = activeNote ? notes.indexOf(activeNote) : -1
-          const surroundingNotes = activeIdx >= 0 ? notes.slice(Math.max(0, activeIdx - 3), activeIdx + 4) : undefined
+          const centerIdx = activeIdx >= 0 ? activeIdx : (hintNote ? notes.indexOf(hintNote) : -1)
+          const surroundingNotes = centerIdx >= 0 ? notes.slice(Math.max(0, centerIdx - 3), centerIdx + 4) : undefined
           drawBackground(ctx, notationRef.current)
           for (const note of notes) {
             drawNote(ctx, note, showFingersRef.current, notationRef.current)
@@ -587,7 +588,7 @@ export default function GameCanvas() {
                 <p className='text-[10px] text-muted-foreground uppercase tracking-widest'>Playlist</p>
                 <p className='text-[10px] text-muted-foreground'>{playlistIndex + 1} / {playlist.length}</p>
               </div>
-              <div className='overflow-y-auto max-h-[320px]'>
+              <div className='playlist-scroll overflow-y-auto max-h-[320px]'>
                 {playlist.map((song, idx) => (
                   <button
                     key={song.id}
