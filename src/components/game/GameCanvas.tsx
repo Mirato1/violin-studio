@@ -462,6 +462,7 @@ export default function GameCanvas() {
           // best-effort
         }
       }
+      await fetchPlaylist()
       if (selectedSongId === songId) {
         setSelectedSongId('twinkle')
         loadSong(TWINKLE_TWINKLE)
@@ -471,7 +472,7 @@ export default function GameCanvas() {
         parsedMusicXmlRef.current = null
       }
     },
-    [selectedSongId, loadSong],
+    [selectedSongId, loadSong, fetchPlaylist],
   )
 
   // Track/part change
