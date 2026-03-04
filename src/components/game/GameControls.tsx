@@ -11,9 +11,6 @@ import {
   Volume2,
   VolumeX,
   Hand,
-  Music,
-  FileMusic,
-  GalleryVerticalEnd,
 } from "lucide-react";
 
 interface GameControlsProps {
@@ -22,14 +19,12 @@ interface GameControlsProps {
   volume: number;
   isMuted: boolean;
   showFingers: boolean;
-  viewMode: "play" | "score";
   onPlayPause: () => void;
   onRestart: () => void;
   onSpeedChange: (speed: number) => void;
   onVolumeChange: (vol: number) => void;
   onMuteToggle: () => void;
   onFingersToggle: () => void;
-  onViewModeToggle: () => void;
 }
 
 export default function GameControls({
@@ -38,14 +33,12 @@ export default function GameControls({
   volume,
   isMuted,
   showFingers,
-  viewMode,
   onPlayPause,
   onRestart,
   onSpeedChange,
   onVolumeChange,
   onMuteToggle,
   onFingersToggle,
-  onViewModeToggle,
 }: GameControlsProps) {
   return (
     <TooltipProvider delayDuration={300}>
@@ -132,20 +125,6 @@ export default function GameControls({
             </TooltipContent>
           </Tooltip>
 
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                onClick={onViewModeToggle}
-                variant={viewMode === "score" ? "default" : "ghost"}
-                size="icon-sm"
-              >
-                {viewMode === "score" ? <FileMusic className="size-4" /> : <GalleryVerticalEnd className="size-4" />}
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="top">
-              {viewMode === "score" ? "Score view (click for play-along)" : "Play-along view (click for score)"}
-            </TooltipContent>
-          </Tooltip>
         </div>
       </div>
     </TooltipProvider>

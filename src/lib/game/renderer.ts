@@ -410,7 +410,8 @@ export function drawLeftPanel(
   activeNote: GameNote | null,
   hintNote: GameNote | null,
   notation: NotationMode = "abc",
-  surroundingNotes?: GameNote[]
+  surroundingNotes?: GameNote[],
+  showFingers = true
 ) {
   const displayNote = activeNote ?? hintNote;
 
@@ -460,7 +461,7 @@ export function drawLeftPanel(
 
     // Note sequence strip
     if (surroundingNotes && surroundingNotes.length > 0) {
-      _drawNoteSequence(ctx, surroundingNotes, activeNote, notation);
+      _drawNoteSequence(ctx, surroundingNotes, activeNote, notation, showFingers);
     }
 
     ctx.restore();
@@ -476,7 +477,7 @@ export function drawLeftPanel(
     _drawPositionLegend(ctx);
 
     if (surroundingNotes && surroundingNotes.length > 0) {
-      _drawNoteSequence(ctx, surroundingNotes, null, notation);
+      _drawNoteSequence(ctx, surroundingNotes, null, notation, showFingers);
     }
   }
 }
@@ -485,10 +486,11 @@ function _drawNoteSequence(
   ctx: CanvasRenderingContext2D,
   notes: GameNote[],
   activeNote: GameNote | null,
-  notation: NotationMode
+  notation: NotationMode,
+  showFingers: boolean
 ) {
   if (notes.length === 0) return;
-  const STRIP_Y = CANVAS_HEIGHT - 145; // above position legend header
+  const STRIP_Y = CANVAS_HEIGHT - 148; // above position legend header
   const n = notes.length;
   const activeIdx = activeNote ? notes.indexOf(activeNote) : -1;
 
@@ -498,8 +500,8 @@ function _drawNoteSequence(
   ctx.strokeStyle = "rgba(230,215,180,0.12)";
   ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.moveTo(16, STRIP_Y - 20);
-  ctx.lineTo(LEFT_PANEL_WIDTH - 16, STRIP_Y - 20);
+  ctx.moveTo(16, STRIP_Y - 24);
+  ctx.lineTo(LEFT_PANEL_WIDTH - 16, STRIP_Y - 24);
   ctx.stroke();
 
   for (let i = 0; i < n; i++) {
@@ -509,7 +511,7 @@ function _drawNoteSequence(
     const distFromActive = Math.abs(i - activeIdx);
 
     const x = (i + 0.5) * (LEFT_PANEL_WIDTH / n);
-    const r = isActive ? 14 : 10;
+    const r = isActive ? 18 : 13;
 
     let alpha: number;
     if (activeIdx < 0) {
@@ -532,19 +534,56 @@ function _drawNoteSequence(
 
     if (isActive) {
       ctx.strokeStyle = "rgba(245,230,200,0.45)";
-      ctx.lineWidth = 1.5;
+      ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.arc(x, STRIP_Y, r, 0, Math.PI * 2);
       ctx.stroke();
     }
 
-    // Finger label
+    // Label: finger number or note name depending on mode
     ctx.globalAlpha = alpha;
-    ctx.fillStyle = isActive ? "rgba(0,0,0,0.65)" : "rgba(245,230,200,0.85)";
-    ctx.font = `bold ${isActive ? 12 : 9}px sans-serif`;
+    ctx.fillStyle = isActive ? "rgba(0,0,0,0.7)" : "rgba(245,230,200,0.9)";
+    const label = showFingers
+      ? (note.finger === 0 ? "O" : String(note.finger))
+      : toNotation(note.noteName.replace(/\d/, ""), notation);
+    ctx.font = `bold ${isActive ? 14 : 10}px sans-serif`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText(note.finger === 0 ? "O" : String(note.finger), x, STRIP_Y);
+    ctx.fillText(label, x, STRIP_Y);
+
+    // Position ring + badge for non-1st position notes (same colors as falling notes)
+    const pos = note.position ?? 1;
+    if (pos > 1) {
+      const ringColors: Record<number, string> = {
+        2: "rgba(100,220,220,1)",
+        3: "rgba(255,160,60,1)",
+        4: "rgba(180,120,255,1)",
+      };
+      const ringColor = ringColors[pos] ?? "rgba(200,200,200,0.85)";
+      const ringW = isActive ? 2.5 : 2;
+      const ringR = r + ringW + 1;
+      const badgeR = isActive ? 7 : 5;
+
+      ctx.globalAlpha = alpha;
+      ctx.strokeStyle = ringColor;
+      ctx.lineWidth = ringW;
+      ctx.beginPath();
+      ctx.arc(x, STRIP_Y, ringR, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Position number badge at top-right
+      const bx = x + ringR * 0.72;
+      const by = STRIP_Y - ringR * 0.72;
+      ctx.fillStyle = "rgba(15,10,5,0.9)";
+      ctx.beginPath();
+      ctx.arc(bx, by, badgeR, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = ringColor;
+      ctx.font = `bold ${isActive ? 9 : 7}px sans-serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(String(pos), bx, by);
+    }
   }
 
   ctx.restore();

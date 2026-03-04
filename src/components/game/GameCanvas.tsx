@@ -15,7 +15,6 @@ import { useAudioEngine } from "@/hooks/useAudioEngine";
 import { useNotation } from "@/contexts/NotationContext";
 import GameControls from "./GameControls";
 import SongSelector from "./SongSelector";
-import ScoreView from "./ScoreView";
 import ProgressBar from "./ProgressBar";
 
 function deepCloneNotes(notes: GameNote[]): GameNote[] {
@@ -36,7 +35,6 @@ export default function GameCanvas() {
   const [selectedSongId, setSelectedSongId] = useState("twinkle");
   const [availableTracks, setAvailableTracks] = useState<TrackInfo[]>([]);
   const [selectedTrackIndex, setSelectedTrackIndex] = useState<number | null>(null);
-  const [viewMode, setViewMode] = useState<"play" | "score">("play");
   const [error, setError] = useState<string | null>(null);
   const { notation } = useNotation();
 
@@ -50,7 +48,6 @@ export default function GameCanvas() {
   const notationRef = useRef(notation);
   const volumeRef = useRef(volume);
   const isMutedRef = useRef(isMuted);
-  const viewModeRef = useRef(viewMode);
 
   const audio = useAudioEngine();
 
@@ -61,7 +58,6 @@ export default function GameCanvas() {
   useEffect(() => { notationRef.current = notation; }, [notation]);
   useEffect(() => { volumeRef.current = volume; }, [volume]);
   useEffect(() => { isMutedRef.current = isMuted; }, [isMuted]);
-  useEffect(() => { viewModeRef.current = viewMode; }, [viewMode]);
 
   // Render loop
   const renderFrame = useCallback(() => {
@@ -71,9 +67,8 @@ export default function GameCanvas() {
 
     const song = songRef.current;
 
-    // Only draw canvas when in play mode
-    if (viewModeRef.current === "play") {
-      const canvas = canvasRef.current;
+    const canvas = canvasRef.current;
+    {
       if (canvas) {
         const ctx = canvas.getContext("2d");
         if (ctx) {
@@ -102,7 +97,7 @@ export default function GameCanvas() {
             drawNote(ctx, note, showFingersRef.current, notationRef.current);
           }
           drawEdgeFades(ctx);
-          drawLeftPanel(ctx, activeNote, hintNote, notationRef.current, surroundingNotes);
+          drawLeftPanel(ctx, activeNote, hintNote, notationRef.current, surroundingNotes, showFingersRef.current);
         }
       }
     }
@@ -426,25 +421,15 @@ export default function GameCanvas() {
         </div>
       )}
 
-      {/* Canvas / score area */}
+      {/* Canvas area */}
       <div className="flex-1 min-h-0 flex items-center justify-center overflow-hidden">
-        {viewMode === "play" ? (
-          <canvas
-            ref={canvasRef}
-            width={CANVAS_WIDTH}
-            height={CANVAS_HEIGHT}
-            className="block"
-            style={{ height: "100%", width: "auto", maxWidth: "100%" }}
-          />
-        ) : (
-          currentSong && (
-            <ScoreView
-              song={currentSong}
-              getCurrentTime={() => currentTimeRef.current}
-              status={status}
-            />
-          )
-        )}
+        <canvas
+          ref={canvasRef}
+          width={CANVAS_WIDTH}
+          height={CANVAS_HEIGHT}
+          className="block"
+          style={{ height: "100%", width: "auto", maxWidth: "100%" }}
+        />
       </div>
 
       {/* Unified bottom bar: controls | progress | song selector */}
@@ -455,14 +440,12 @@ export default function GameCanvas() {
           volume={volume}
           isMuted={isMuted}
           showFingers={showFingers}
-          viewMode={viewMode}
           onPlayPause={handlePlayPause}
           onRestart={handleRestart}
           onSpeedChange={handleSpeedChange}
           onVolumeChange={setVolume}
           onMuteToggle={() => setIsMuted((m) => !m)}
           onFingersToggle={() => setShowFingers((f) => !f)}
-          onViewModeToggle={() => setViewMode((m) => m === "play" ? "score" : "play")}
         />
         <div className="h-5 border-l border-border" />
         <ProgressBar
