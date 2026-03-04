@@ -9,6 +9,7 @@ import { drawBackground, drawNote, drawOverlay, drawProgressBar } from "@/lib/ga
 import { updateNotes } from "@/lib/game/noteTrack";
 import { CANVAS_WIDTH, CANVAS_HEIGHT, PROGRESS_BAR_HEIGHT } from "@/lib/game/constants";
 import { useAudioEngine } from "@/hooks/useAudioEngine";
+import { useNotation } from "@/contexts/NotationContext";
 import GameControls from "./GameControls";
 import SongSelector from "./SongSelector";
 
@@ -29,12 +30,14 @@ export default function GameCanvas() {
   const [currentSong, setCurrentSong] = useState<MappedSong | null>(null);
   const [selectedSongId, setSelectedSongId] = useState("twinkle");
   const [error, setError] = useState<string | null>(null);
+  const { notation } = useNotation();
 
   const notesRef = useRef<GameNote[]>([]);
   const songRef = useRef<MappedSong | null>(null);
   const speedRef = useRef(speed);
   const showFingersRef = useRef(showFingers);
   const statusRef = useRef(status);
+  const notationRef = useRef(notation);
 
   const audio = useAudioEngine();
 
@@ -42,6 +45,7 @@ export default function GameCanvas() {
   useEffect(() => { speedRef.current = speed; }, [speed]);
   useEffect(() => { showFingersRef.current = showFingers; }, [showFingers]);
   useEffect(() => { statusRef.current = status; }, [status]);
+  useEffect(() => { notationRef.current = notation; }, [notation]);
 
   // Render loop
   const renderFrame = useCallback(() => {
@@ -59,11 +63,11 @@ export default function GameCanvas() {
 
     const activeNote = updateNotes(notes, currentTimeRef.current, speedRef.current);
 
-    drawBackground(ctx);
+    drawBackground(ctx, notationRef.current);
     for (const note of notes) {
-      drawNote(ctx, note, showFingersRef.current);
+      drawNote(ctx, note, showFingersRef.current, notationRef.current);
     }
-    drawOverlay(ctx, activeNote);
+    drawOverlay(ctx, activeNote, notationRef.current);
     drawProgressBar(ctx, currentTimeRef.current, song?.durationSec ?? 0);
 
     // Auto-stop at end

@@ -7,12 +7,47 @@ const STRING_TO_LANE: Record<string, number> = { G: 0, D: 1, A: 2, E: 3 };
 const MIN_MIDI = Math.min(...VIOLIN_NOTES.map((n) => n.midiNumber)); // 55 (G3)
 const MAX_MIDI = Math.max(...VIOLIN_NOTES.map((n) => n.midiNumber)); // 93 (A6)
 
-/** Transpose a MIDI note into playable violin range by octave shifts */
-function clampToRange(midi: number): number {
-  let m = midi;
-  while (m < MIN_MIDI) m += 12;
-  while (m > MAX_MIDI) m -= 12;
-  return m;
+/** Transpose a MIDI note into playable violin range (±1 octave max).
+ *  Returns null if the note is too far outside range (non-violin instrument). */
+function clampToRange(midi: number): number | null {
+  if (midi >= MIN_MIDI && midi <= MAX_MIDI) return midi;
+  if (midi >= MIN_MIDI - 12 && midi < MIN_MIDI) return midi + 12;
+  if (midi > MAX_MIDI && midi <= MAX_MIDI + 12) return midi - 12;
+  return null;
+}
+
+/** Select the best track for solo violin from a multi-track MIDI file.
+ *  Uses track name matching and note-range analysis. */
+function selectBestTrack(midi: MidiFile): number {
+  if (midi.format === 0 || midi.tracks.length <= 1) return 0;
+
+  const scores = midi.tracks.map((track, idx) => {
+    let trackName = "";
+    let noteCount = 0;
+    let inRangeCount = 0;
+
+    for (const event of track.events) {
+      if (event.type === "meta" && event.metaType === 0x03) {
+        trackName = String.fromCharCode(...event.data);
+      }
+      if (event.type === "noteOn" && event.velocity > 0) {
+        noteCount++;
+        if (event.note >= MIN_MIDI && event.note <= MAX_MIDI) inRangeCount++;
+      }
+    }
+
+    const rangeRatio = noteCount > 0 ? inRangeCount / noteCount : 0;
+    const nameBonus = /violin|solo|vln|violine|violino/i.test(trackName) ? 1000 : 0;
+    const score = inRangeCount * rangeRatio + nameBonus;
+
+    return { idx, noteCount, score };
+  });
+
+  const best = scores
+    .filter((s) => s.noteCount > 0)
+    .sort((a, b) => b.score - a.score);
+
+  return best.length > 0 ? best[0].idx : 0;
 }
 
 interface TempoEntry {
@@ -69,7 +104,9 @@ export function mapMidiToViolin(midi: MidiFile, title: string = "Untitled"): Map
   const tempoMap = buildTempoMap(midi);
   const { ticksPerBeat } = midi;
 
-  // Collect all note on/off pairs across all tracks
+  // Select the best track for violin notes (solo part)
+  const bestTrackIdx = selectBestTrack(midi);
+
   interface PendingNote {
     midi: number;
     channel: number;
@@ -79,7 +116,7 @@ export function mapMidiToViolin(midi: MidiFile, title: string = "Untitled"): Map
 
   const rawNotes: { midi: number; tickStart: number; tickEnd: number }[] = [];
 
-  for (const track of midi.tracks) {
+  for (const track of [midi.tracks[bestTrackIdx]]) {
     let tick = 0;
     const trackPending: Map<string, PendingNote> = new Map();
     for (const event of track.events) {
@@ -117,8 +154,9 @@ export function mapMidiToViolin(midi: MidiFile, title: string = "Untitled"): Map
   for (let i = 0; i < rawNotes.length; i++) {
     const raw = rawNotes[i];
     const clamped = clampToRange(raw.midi);
-    const vNote = findNoteByMidi(clamped, lastString);
+    if (clamped === null) continue; // skip notes too far outside violin range
 
+    const vNote = findNoteByMidi(clamped, lastString);
     if (!vNote) continue; // skip unmappable notes
 
     const startTimeSec = tickToSec(raw.tickStart, tempoMap, ticksPerBeat);

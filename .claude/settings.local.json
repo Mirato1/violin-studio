@@ -10,7 +10,9 @@
       "Bash(npm install mongoose tone)",
       "Bash(npx shadcn@latest init -d)",
       "Bash(npx shadcn@latest add button card dialog select slider tabs toggle tooltip progress -y)",
-      "Bash(npx next build)"
+      "Bash(npx next build)",
+      "Bash(npx tsc --noEmit)",
+      "Bash(npm run build)"
     ]
   }
 }

@@ -3,6 +3,8 @@
 import type { ViolinString } from "@/types/violin";
 import { VIOLIN_STRINGS, STRING_COLORS } from "@/types/violin";
 import { cn } from "@/lib/utils";
+import { useNotation } from "@/contexts/NotationContext";
+import { stringToNotation } from "@/lib/notation";
 
 interface StringFilterProps {
   selected: ViolinString | "all";
@@ -10,15 +12,17 @@ interface StringFilterProps {
 }
 
 export default function StringFilter({ selected, onSelect }: StringFilterProps) {
+  const { notation } = useNotation();
+
   return (
     <div className="flex gap-2">
       <button
         onClick={() => onSelect("all")}
         className={cn(
-          "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+          "rounded-md border px-3 py-1.5 text-sm font-semibold transition-all",
           selected === "all"
-            ? "bg-primary text-primary-foreground"
-            : "bg-secondary text-secondary-foreground hover:bg-accent"
+            ? "border-gold/40 bg-primary text-primary-foreground gold-glow"
+            : "border-transparent bg-secondary text-secondary-foreground hover:border-gold/20 hover:bg-accent"
         )}
       >
         All
@@ -28,14 +32,14 @@ export default function StringFilter({ selected, onSelect }: StringFilterProps) 
           key={s}
           onClick={() => onSelect(s)}
           className={cn(
-            "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+            "rounded-md border px-3 py-1.5 text-sm font-semibold transition-all",
             selected === s
-              ? "text-white"
-              : "bg-secondary text-secondary-foreground hover:bg-accent"
+              ? "border-current/30 text-white"
+              : "border-transparent bg-secondary text-secondary-foreground hover:border-gold/20 hover:bg-accent"
           )}
           style={selected === s ? { backgroundColor: STRING_COLORS[s].fill } : undefined}
         >
-          {s} String
+          {stringToNotation(s, notation)} String
         </button>
       ))}
     </div>

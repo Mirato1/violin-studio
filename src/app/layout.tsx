@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Cormorant_Garamond, Fira_Code } from "next/font/google";
 import "./globals.css";
 import Navbar from "@/components/layout/Navbar";
+import { NotationProvider } from "@/contexts/NotationContext";
 
 const cormorant = Cormorant_Garamond({
   variable: "--font-cormorant",
@@ -29,8 +30,10 @@ export default function RootLayout({
       <body
         className={`${cormorant.variable} ${firaCode.variable} antialiased`}
       >
-        <Navbar />
-        <main className="mx-auto max-w-5xl px-4 py-6">{children}</main>
+        <NotationProvider>
+          <Navbar />
+          <main className="mx-auto max-w-5xl px-4 py-6">{children}</main>
+        </NotationProvider>
       </body>
     </html>
   );

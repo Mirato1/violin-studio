@@ -1,5 +1,6 @@
 import type { GameNote } from "@/types/game";
 import { STRING_COLORS, type ViolinString } from "@/types/violin";
+import { type NotationMode, toNotation, toNotationFull, stringToNotation } from "@/lib/notation";
 import {
   CANVAS_WIDTH,
   CANVAS_HEIGHT,
@@ -13,7 +14,7 @@ import {
 
 const STRINGS_ORDER: ViolinString[] = ["G", "D", "A", "E"];
 
-export function drawBackground(ctx: CanvasRenderingContext2D) {
+export function drawBackground(ctx: CanvasRenderingContext2D, notation: NotationMode = "abc") {
   // Dark background
   ctx.fillStyle = "#120e08";
   ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
@@ -51,7 +52,7 @@ export function drawBackground(ctx: CanvasRenderingContext2D) {
   for (let i = 0; i < LANE_COUNT; i++) {
     const s = STRINGS_ORDER[i];
     ctx.fillStyle = STRING_COLORS[s].faded;
-    ctx.fillText(s, i * LANE_WIDTH + LANE_WIDTH / 2, OVERLAY_HEIGHT + 15);
+    ctx.fillText(stringToNotation(s, notation), i * LANE_WIDTH + LANE_WIDTH / 2, OVERLAY_HEIGHT + 15);
   }
 
   // Hit line with glow
@@ -90,7 +91,8 @@ export function drawBackground(ctx: CanvasRenderingContext2D) {
 export function drawNote(
   ctx: CanvasRenderingContext2D,
   note: GameNote,
-  showFingers: boolean
+  showFingers: boolean,
+  notation: NotationMode = "abc"
 ) {
   const x = note.lane * LANE_WIDTH + LANE_WIDTH / 2;
   const y = note.y;
@@ -171,7 +173,7 @@ export function drawNote(
     ctx.font = "bold 14px sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    const label = showFingers ? String(note.finger) : note.noteName.replace(/\d/, "");
+    const label = showFingers ? String(note.finger) : toNotation(note.noteName.replace(/\d/, ""), notation);
     ctx.fillText(label, x + 0.5, y + 0.5);
     ctx.fillStyle = "#f5e6c8";
     ctx.fillText(label, x, y);
@@ -180,7 +182,7 @@ export function drawNote(
     ctx.font = "bold 13px sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    const label = showFingers ? String(note.finger) : note.noteName.replace(/\d/, "");
+    const label = showFingers ? String(note.finger) : toNotation(note.noteName.replace(/\d/, ""), notation);
     ctx.fillText(label, x, y);
   }
 
@@ -286,7 +288,8 @@ function drawStaffNotation(ctx: CanvasRenderingContext2D, note: GameNote) {
 
 export function drawOverlay(
   ctx: CanvasRenderingContext2D,
-  activeNote: GameNote | null
+  activeNote: GameNote | null,
+  notation: NotationMode = "abc"
 ) {
   // Semi-transparent overlay bar
   const overlayGrad = ctx.createLinearGradient(0, 0, 0, OVERLAY_HEIGHT);
@@ -326,7 +329,7 @@ export function drawOverlay(
     ctx.font = "bold 28px sans-serif";
     ctx.textAlign = "left";
     ctx.textBaseline = "middle";
-    ctx.fillText(activeNote.noteName, infoX, 38);
+    ctx.fillText(toNotationFull(activeNote.noteName, notation), infoX, 38);
 
     // Second row: String, Finger, Position
     ctx.font = "14px sans-serif";
@@ -335,7 +338,7 @@ export function drawOverlay(
 
     // String badge
     ctx.fillStyle = color.fill;
-    ctx.fillText(`${activeNote.string} String`, infoX, row2Y);
+    ctx.fillText(`${stringToNotation(activeNote.string, notation)} String`, infoX, row2Y);
 
     // Finger
     const fingerText = activeNote.finger === 0 ? "Open" : `Finger ${activeNote.finger}`;

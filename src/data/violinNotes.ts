@@ -10,21 +10,28 @@ import type { ViolinNote } from "@/types/violin";
 export const VIOLIN_NOTES: ViolinNote[] = [
   // === G String (1st position) ===
   { id: "G3", name: "G3", displayName: "G", midiNumber: 55, string: "G", finger: 0, staffPosition: -3 },
+  { id: "Ab3", name: "Ab3", displayName: "Ab", midiNumber: 56, string: "G", finger: 1, staffPosition: -2, accidental: "flat" },
   { id: "A3", name: "A3", displayName: "A", midiNumber: 57, string: "G", finger: 1, staffPosition: -2 },
+  { id: "Bb3", name: "Bb3", displayName: "Bb", midiNumber: 58, string: "G", finger: 2, staffPosition: -1, accidental: "flat" },
   { id: "B3", name: "B3", displayName: "B", midiNumber: 59, string: "G", finger: 2, staffPosition: -1 },
   { id: "C4", name: "C4", displayName: "C", midiNumber: 60, string: "G", finger: 3, staffPosition: 0 },
+  { id: "C#4", name: "C#4", displayName: "C#", midiNumber: 61, string: "G", finger: 4, staffPosition: 0, accidental: "sharp" },
   // === D String (1st position) ===
   { id: "D4", name: "D4", displayName: "D", midiNumber: 62, string: "D", finger: 0, staffPosition: 1 },
+  { id: "Eb4", name: "Eb4", displayName: "Eb", midiNumber: 63, string: "D", finger: 1, staffPosition: 2, accidental: "flat" },
   { id: "E4", name: "E4", displayName: "E", midiNumber: 64, string: "D", finger: 1, staffPosition: 2 },
   { id: "F4", name: "F4", displayName: "F", midiNumber: 65, string: "D", finger: 2, staffPosition: 3 },
   { id: "F#4", name: "F#4", displayName: "F#", midiNumber: 66, string: "D", finger: 2, staffPosition: 3, accidental: "sharp" },
   { id: "G4", name: "G4", displayName: "G", midiNumber: 67, string: "D", finger: 3, staffPosition: 4 },
+  { id: "G#4", name: "G#4", displayName: "G#", midiNumber: 68, string: "D", finger: 4, staffPosition: 4, accidental: "sharp" },
   // === A String (1st position) ===
   { id: "A4", name: "A4", displayName: "A", midiNumber: 69, string: "A", finger: 0, staffPosition: 5 },
+  { id: "Bb4", name: "Bb4", displayName: "Bb", midiNumber: 70, string: "A", finger: 1, staffPosition: 6, accidental: "flat" },
   { id: "B4", name: "B4", displayName: "B", midiNumber: 71, string: "A", finger: 1, staffPosition: 6 },
   { id: "C5", name: "C5", displayName: "C", midiNumber: 72, string: "A", finger: 2, staffPosition: 7 },
   { id: "C#5", name: "C#5", displayName: "C#", midiNumber: 73, string: "A", finger: 2, staffPosition: 7, accidental: "sharp" },
   { id: "D5", name: "D5", displayName: "D", midiNumber: 74, string: "A", finger: 3, staffPosition: 8 },
+  { id: "Eb5", name: "Eb5", displayName: "Eb", midiNumber: 75, string: "A", finger: 4, staffPosition: 9, accidental: "flat" },
   { id: "E5", name: "E5", displayName: "E", midiNumber: 76, string: "A", finger: 4, staffPosition: 9 },
   // === A String (3rd position) ===
   { id: "F5-A", name: "F5", displayName: "F", midiNumber: 77, string: "A", finger: 1, staffPosition: 10, position: 3 },
@@ -37,6 +44,7 @@ export const VIOLIN_NOTES: ViolinNote[] = [
   { id: "F#5", name: "F#5", displayName: "F#", midiNumber: 78, string: "E", finger: 1, staffPosition: 10, accidental: "sharp" },
   { id: "G5", name: "G5", displayName: "G", midiNumber: 79, string: "E", finger: 2, staffPosition: 11 },
   { id: "A5", name: "A5", displayName: "A", midiNumber: 81, string: "E", finger: 3, staffPosition: 12 },
+  { id: "Bb5", name: "Bb5", displayName: "Bb", midiNumber: 82, string: "E", finger: 4, staffPosition: 13, accidental: "flat" },
   { id: "B5", name: "B5", displayName: "B", midiNumber: 83, string: "E", finger: 4, staffPosition: 13 },
   // === E String (3rd position) ===
   { id: "C6", name: "C6", displayName: "C", midiNumber: 84, string: "E", finger: 1, staffPosition: 14, position: 3 },
@@ -57,7 +65,8 @@ export function getNotesByString(s: string) {
   return VIOLIN_NOTES.filter((n) => n.string === s);
 }
 
-/** Find the best violin note for a MIDI number, optionally preferring a string */
+/** Find the best violin note for a MIDI number, optionally preferring a string.
+ *  When multiple matches exist, prefers 1st position over higher positions. */
 export function findNoteByMidi(
   midiNumber: number,
   preferString?: string
@@ -68,5 +77,7 @@ export function findNoteByMidi(
     const preferred = matches.find((n) => n.string === preferString);
     if (preferred) return preferred;
   }
-  return matches[0];
+  // Prefer 1st position (no position field or position=1) over higher positions
+  const firstPos = matches.find((n) => !n.position || n.position === 1);
+  return firstPos ?? matches[0];
 }

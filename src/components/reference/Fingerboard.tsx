@@ -4,6 +4,8 @@ import { useRef, useEffect } from "react";
 import type { ViolinString } from "@/types/violin";
 import { STRING_COLORS } from "@/types/violin";
 import { VIOLIN_NOTES } from "@/data/violinNotes";
+import { useNotation } from "@/contexts/NotationContext";
+import { stringToNotation, toNotation } from "@/lib/notation";
 
 interface FingerboardProps {
   selectedString: ViolinString | "all";
@@ -11,6 +13,7 @@ interface FingerboardProps {
 
 export default function Fingerboard({ selectedString }: FingerboardProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const { notation } = useNotation();
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -19,7 +22,9 @@ export default function Fingerboard({ selectedString }: FingerboardProps) {
     if (!ctx) return;
 
     const dpr = window.devicePixelRatio || 1;
-    const w = 600;
+    const isSolfege = notation === "solfege";
+    const nutX = isSolfege ? 100 : 80;
+    const w = isSolfege ? 640 : 600;
     const h = 160;
     canvas.width = w * dpr;
     canvas.height = h * dpr;
@@ -29,8 +34,7 @@ export default function Fingerboard({ selectedString }: FingerboardProps) {
 
     const strings: ViolinString[] = ["G", "D", "A", "E"];
     const stringY: Record<ViolinString, number> = { G: 30, D: 60, A: 90, E: 120 };
-    const nutX = 80;
-    const boardWidth = 480;
+    const boardWidth = w - nutX - 40;
     const fingerSpacing = boardWidth / 5; // 5 slots: open + 4 fingers
 
     // Draw fingerboard background
@@ -61,7 +65,7 @@ export default function Fingerboard({ selectedString }: FingerboardProps) {
       ctx.font = "bold 13px sans-serif";
       ctx.textAlign = "right";
       ctx.textBaseline = "middle";
-      ctx.fillText(s, nutX - 15, y);
+      ctx.fillText(stringToNotation(s, notation), nutX - 15, y);
     }
 
     // Draw finger positions
@@ -97,16 +101,16 @@ export default function Fingerboard({ selectedString }: FingerboardProps) {
 
         // Note name below
         ctx.fillStyle = color.faded;
-        ctx.font = "10px sans-serif";
-        ctx.fillText(note.displayName, x, y + 18);
+        ctx.font = isSolfege ? "9px sans-serif" : "10px sans-serif";
+        ctx.fillText(toNotation(note.displayName, notation), x, y + 18);
       }
     }
-  }, [selectedString]);
+  }, [selectedString, notation]);
 
   return (
     <canvas
       ref={canvasRef}
-      style={{ width: 600, height: 160 }}
+      style={{ width: notation === "solfege" ? 640 : 600, height: 160 }}
       className="mx-auto block rounded-lg border p-2"
     />
   );

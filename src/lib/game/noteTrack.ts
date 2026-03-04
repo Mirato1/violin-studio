@@ -10,7 +10,8 @@ export function updateNotes(
   currentTimeSec: number,
   speed: number
 ): GameNote | null {
-  const pps = BASE_PIXELS_PER_SECOND * speed;
+  // Constant spacing: speed only affects scroll rate (via currentTimeSec advancing slower/faster)
+  const pps = BASE_PIXELS_PER_SECOND;
   let activeNote: GameNote | null = null;
 
   for (const note of notes) {

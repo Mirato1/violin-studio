@@ -19,8 +19,9 @@ export default function ReferencePage() {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-2xl font-bold">Reference</h1>
-        <p className="text-muted-foreground">
+        <h1 className="gold-text text-3xl font-bold tracking-tight">Reference</h1>
+        <div className="gold-divider mt-2 w-24" />
+        <p className="mt-2 text-muted-foreground">
           All first-position notes organized by string — staff notation, names, and finger numbers.
         </p>
       </div>

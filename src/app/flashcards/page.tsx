@@ -4,8 +4,9 @@ export default function FlashcardsPage() {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-2xl font-bold">Flashcards</h1>
-        <p className="text-muted-foreground">
+        <h1 className="gold-text text-3xl font-bold tracking-tight">Flashcards</h1>
+        <div className="gold-divider mt-2 w-24" />
+        <p className="mt-2 text-muted-foreground">
           Practice reading notes on the staff. Cards you struggle with will appear more often.
         </p>
       </div>
