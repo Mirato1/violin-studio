@@ -52,6 +52,7 @@ export default function ScoreView({ song, getCurrentTime, status }: ScoreViewPro
   const prevActiveIdxRef = useRef(-1);
   const updateHighlightRef = useRef<(t: number) => void>(() => {});
   const [currentNote, setCurrentNote] = useState<GameNote | null>(null);
+  const [surroundingNotes, setSurroundingNotes] = useState<GameNote[]>([]);
 
   // Render score when song changes
   useEffect(() => {
@@ -176,8 +177,8 @@ export default function ScoreView({ song, getCurrentTime, status }: ScoreViewPro
     ctx.clearRect(0, 0, PANEL_CANVAS_W, PANEL_CANVAS_H);
     ctx.fillStyle = "#0c0a06";
     ctx.fillRect(0, 0, PANEL_CANVAS_W, PANEL_CANVAS_H);
-    drawLeftPanel(ctx, currentNote, currentNote, notation);
-  }, [currentNote, notation]);
+    drawLeftPanel(ctx, currentNote, currentNote, notation, surroundingNotes.length > 0 ? surroundingNotes : undefined);
+  }, [currentNote, notation, surroundingNotes]);
 
   // Highlight active note and update note info
   const updateHighlight = useCallback(
@@ -197,6 +198,9 @@ export default function ScoreView({ song, getCurrentTime, status }: ScoreViewPro
       if (activeIndex !== prevActiveIdxRef.current) {
         prevActiveIdxRef.current = activeIndex;
         setCurrentNote(activeIndex >= 0 ? notes[activeIndex] : null);
+        if (activeIndex >= 0) {
+          setSurroundingNotes(notes.slice(Math.max(0, activeIndex - 3), activeIndex + 4));
+        }
       }
 
       // Remove previous highlight (direct style manipulation, no CSS classes)

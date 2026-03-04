@@ -234,7 +234,7 @@ const MAX_SEMITONES = 14;
 const POS_NAMES: Record<number, string> = { 1: "1st", 2: "2nd", 3: "3rd", 4: "4th", 5: "5th", 6: "6th", 7: "7th" };
 
 /** Draw a vertical fingerboard diagram inside the left panel */
-function drawVerticalFingerboard(ctx: CanvasRenderingContext2D, note: GameNote, notation: NotationMode) {
+function drawVerticalFingerboard(ctx: CanvasRenderingContext2D, note: GameNote, notation: NotationMode, hintNote?: GameNote | null) {
   const fbLeft = 30;
   const fbTop = 140;
   const fbWidth = 180;
@@ -369,6 +369,30 @@ function drawVerticalFingerboard(ctx: CanvasRenderingContext2D, note: GameNote, 
     }
   }
 
+  // Hint note (next note) — small faded dot on the fingerboard
+  if (hintNote && hintNote !== note) {
+    const hintStrIdx = STRINGS_ORDER.indexOf(hintNote.string as ViolinString);
+    if (hintStrIdx >= 0) {
+      const hintSemi = Math.max(0, hintNote.midiNumber - OPEN_MIDI[hintNote.string]);
+      const hintColor = STRING_COLORS[hintNote.string as ViolinString];
+      const hintX = stringXs[hintStrIdx];
+      ctx.globalAlpha = 0.4;
+      if (hintSemi === 0) {
+        ctx.fillStyle = hintColor.fill;
+        ctx.beginPath();
+        ctx.arc(hintX, fbTop + nutHeight / 2 + 2, 7, 0, Math.PI * 2);
+        ctx.fill();
+      } else {
+        const hintY = playableTop + (Math.min(hintSemi, MAX_SEMITONES) / MAX_SEMITONES) * playableHeight;
+        ctx.fillStyle = hintColor.fill;
+        ctx.beginPath();
+        ctx.arc(hintX, hintY, 8, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
+  }
+
   // Position label below fingerboard
   const pos = note.position ?? 1;
   const posLabel = POS_NAMES[pos] ?? `${pos}th`;
@@ -385,7 +409,8 @@ export function drawLeftPanel(
   ctx: CanvasRenderingContext2D,
   activeNote: GameNote | null,
   hintNote: GameNote | null,
-  notation: NotationMode = "abc"
+  notation: NotationMode = "abc",
+  surroundingNotes?: GameNote[]
 ) {
   const displayNote = activeNote ?? hintNote;
 
@@ -428,10 +453,15 @@ export function drawLeftPanel(
     ctx.fillText(`${posLabel} pos`, cx, 99);
 
     // Vertical fingerboard
-    drawVerticalFingerboard(ctx, displayNote, notation);
+    drawVerticalFingerboard(ctx, displayNote, notation, isHint ? null : hintNote);
 
     // Position legend (always visible at bottom of panel)
     _drawPositionLegend(ctx);
+
+    // Note sequence strip
+    if (surroundingNotes && surroundingNotes.length > 0) {
+      _drawNoteSequence(ctx, surroundingNotes, activeNote, notation);
+    }
 
     ctx.restore();
   } else {
@@ -444,7 +474,80 @@ export function drawLeftPanel(
     ctx.fillText("to start", LEFT_PANEL_WIDTH / 2, CANVAS_HEIGHT / 2 + 12);
 
     _drawPositionLegend(ctx);
+
+    if (surroundingNotes && surroundingNotes.length > 0) {
+      _drawNoteSequence(ctx, surroundingNotes, null, notation);
+    }
   }
+}
+
+function _drawNoteSequence(
+  ctx: CanvasRenderingContext2D,
+  notes: GameNote[],
+  activeNote: GameNote | null,
+  notation: NotationMode
+) {
+  if (notes.length === 0) return;
+  const STRIP_Y = CANVAS_HEIGHT - 145; // above position legend header
+  const n = notes.length;
+  const activeIdx = activeNote ? notes.indexOf(activeNote) : -1;
+
+  ctx.save();
+
+  // Subtle separator
+  ctx.strokeStyle = "rgba(230,215,180,0.12)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(16, STRIP_Y - 20);
+  ctx.lineTo(LEFT_PANEL_WIDTH - 16, STRIP_Y - 20);
+  ctx.stroke();
+
+  for (let i = 0; i < n; i++) {
+    const note = notes[i];
+    const isActive = i === activeIdx;
+    const isPast = activeIdx >= 0 && i < activeIdx;
+    const distFromActive = Math.abs(i - activeIdx);
+
+    const x = (i + 0.5) * (LEFT_PANEL_WIDTH / n);
+    const r = isActive ? 14 : 10;
+
+    let alpha: number;
+    if (activeIdx < 0) {
+      alpha = 0.4;
+    } else if (isActive) {
+      alpha = 1.0;
+    } else if (isPast) {
+      alpha = Math.max(0.15, 0.35 - distFromActive * 0.08);
+    } else {
+      alpha = Math.max(0.3, 1.0 - distFromActive * 0.2);
+    }
+
+    const color = STRING_COLORS[note.string];
+
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = isActive ? color.glow : color.fill;
+    ctx.beginPath();
+    ctx.arc(x, STRIP_Y, r, 0, Math.PI * 2);
+    ctx.fill();
+
+    if (isActive) {
+      ctx.strokeStyle = "rgba(245,230,200,0.45)";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(x, STRIP_Y, r, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    // Finger label
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = isActive ? "rgba(0,0,0,0.65)" : "rgba(245,230,200,0.85)";
+    ctx.font = `bold ${isActive ? 12 : 9}px sans-serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(note.finger === 0 ? "O" : String(note.finger), x, STRIP_Y);
+  }
+
+  ctx.restore();
 }
 
 function _drawPositionLegend(ctx: CanvasRenderingContext2D) {

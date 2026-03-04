@@ -93,12 +93,16 @@ export default function GameCanvas() {
             }
           }
 
+          const activeIdx = activeNote ? notes.indexOf(activeNote) : -1;
+          const surroundingNotes = activeIdx >= 0
+            ? notes.slice(Math.max(0, activeIdx - 3), activeIdx + 4)
+            : undefined;
           drawBackground(ctx, notationRef.current);
           for (const note of notes) {
             drawNote(ctx, note, showFingersRef.current, notationRef.current);
           }
           drawEdgeFades(ctx);
-          drawLeftPanel(ctx, activeNote, hintNote, notationRef.current);
+          drawLeftPanel(ctx, activeNote, hintNote, notationRef.current, surroundingNotes);
         }
       }
     }
