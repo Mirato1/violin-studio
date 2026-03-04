@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git -C /c/Users/Lucas/Documents/GitHub/violin-studio status)",
+      "Bash(git -C /c/Users/Lucas/Documents/GitHub/violin-studio log --oneline)",
+      "WebFetch(domain:tegaru.app)",
+      "WebFetch(domain:ccrma.stanford.edu)",
+      "Bash(npx create-next-app@latest . --ts --tailwind --eslint --app --src-dir --use-npm --no-import-alias)",
+      "Bash(npx create-next-app@latest violin-studio-temp --ts --tailwind --eslint --app --src-dir --use-npm --no-import-alias)",
+      "Bash(npm install mongoose tone)",
+      "Bash(npx shadcn@latest init -d)",
+      "Bash(npx shadcn@latest add button card dialog select slider tabs toggle tooltip progress -y)",
+      "Bash(npx next build)"
+    ]
+  }
+}
