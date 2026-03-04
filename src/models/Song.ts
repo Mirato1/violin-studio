@@ -15,6 +15,14 @@ interface ISongNote {
   slurEnd?: boolean;
 }
 
+export interface ISongTrack {
+  index: number;
+  name: string;
+  noteCount: number;
+  isBestGuess: boolean;
+  notes: ISongNote[];
+}
+
 export interface ISong extends Document {
   title: string;
   artist?: string;
@@ -22,6 +30,7 @@ export interface ISong extends Document {
   ticksPerBeat: number;
   durationSec: number;
   notes: ISongNote[];
+  tracks?: ISongTrack[];
   isBuiltIn: boolean;
   uploadedAt: Date;
 }
@@ -44,6 +53,17 @@ const SongNoteSchema = new Schema(
   { _id: false }
 );
 
+const SongTrackSchema = new Schema(
+  {
+    index: { type: Number, required: true },
+    name: { type: String, required: true },
+    noteCount: { type: Number, required: true },
+    isBestGuess: { type: Boolean, default: false },
+    notes: { type: [SongNoteSchema], required: true },
+  },
+  { _id: false }
+);
+
 const SongSchema = new Schema({
   title: { type: String, required: true },
   artist: { type: String },
@@ -51,6 +71,7 @@ const SongSchema = new Schema({
   ticksPerBeat: { type: Number, required: true },
   durationSec: { type: Number, required: true },
   notes: { type: [SongNoteSchema], required: true },
+  tracks: { type: [SongTrackSchema], default: undefined },
   isBuiltIn: { type: Boolean, default: false },
   uploadedAt: { type: Date, default: Date.now },
 });

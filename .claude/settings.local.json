@@ -19,7 +19,8 @@
       "Bash(npm install fflate)",
       "Bash(node -e \"const vf = require\\(''vexflow''\\); console.log\\(Object.keys\\(vf.CurvePosition\\)\\); console.log\\(JSON.stringify\\(Object.keys\\(vf\\).filter\\(k => k.toLowerCase\\(\\).includes\\(''curve''\\)\\)\\)\\)\")",
       "Bash(xargs grep -l \"localSongs\")",
-      "Bash(xargs grep -l \"musicxml\\\\|mxl\\\\|upload\")"
+      "Bash(xargs grep -l \"musicxml\\\\|mxl\\\\|upload\")",
+      "Bash(NODE_OPTIONS=\"--max-old-space-size=16384\" npx next build)"
     ]
   }
 }

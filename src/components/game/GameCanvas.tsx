@@ -71,6 +71,8 @@ export default function GameCanvas() {
   const parsedMidiRef = useRef<MidiFile | null>(null)
   const parsedMusicXmlRef = useRef<string | null>(null)
   const midiTitleRef = useRef('')
+  /** Pre-mapped tracks from saved multi-track songs (index → GameNote[]) */
+  const savedTracksRef = useRef<Map<number, GameNote[]> | null>(null)
   const speedRef = useRef(speed)
   const showFingersRef = useRef(showFingers)
   const statusRef = useRef(status)
@@ -322,6 +324,34 @@ export default function GameCanvas() {
     [audio],
   )
 
+  // Helper: convert DB-format notes back to GameNote[]
+  const dbNotesToGameNotes = useCallback((dbNotes: Record<string, unknown>[]): GameNote[] => {
+    const STRING_TO_LANE: Record<string, number> = { G: 0, D: 1, A: 2, E: 3 }
+    return dbNotes.map((n, i) => {
+      const needsRecovery = n.position == null || n.staffPosition == null
+      const vNote = needsRecovery ? findNoteByMidi(Number(n.midiNumber)) : undefined
+      const str = (vNote?.string ?? n.string) as GameNote['string']
+      return {
+        id: `db-${i}`,
+        midiNumber: n.midiNumber as number,
+        noteName: (vNote?.name ?? n.noteName) as string,
+        string: str,
+        finger: (vNote?.finger ?? n.finger) as number,
+        lane: vNote ? STRING_TO_LANE[vNote.string] : (n.lane as number),
+        startTimeSec: n.startTimeSec as number,
+        durationSec: n.durationSec as number,
+        y: 0,
+        tailHeight: 0,
+        state: 'upcoming' as const,
+        staffPosition: (vNote?.staffPosition ?? (n.staffPosition as number) ?? 0),
+        accidental: (vNote?.accidental ?? (n.accidental as 'sharp' | 'flat' | undefined)),
+        position: (vNote?.position ?? (n.position != null ? Number(n.position) : undefined)),
+        slurStart: n.slurStart as boolean | undefined,
+        slurEnd: n.slurEnd as boolean | undefined,
+      }
+    })
+  }, [])
+
   // Shared helper to serialize note fields for DB/local storage
   const noteFields = useCallback((s: MappedSong) =>
     s.notes.map((n) => ({
@@ -339,24 +369,51 @@ export default function GameCanvas() {
       slurEnd: n.slurEnd,
     })), [])
 
+  /** Serialize GameNote[] to DB-format note fields */
+  const serializeNotes = useCallback((notes: GameNote[]) =>
+    notes.map((n) => ({
+      midiNumber: n.midiNumber,
+      noteName: n.noteName,
+      string: n.string,
+      finger: n.finger,
+      lane: n.lane,
+      startTimeSec: n.startTimeSec,
+      durationSec: n.durationSec,
+      staffPosition: n.staffPosition,
+      accidental: n.accidental,
+      position: n.position,
+      slurStart: n.slurStart,
+      slurEnd: n.slurEnd,
+    })), [])
+
   const saveSong = useCallback(async (song: MappedSong, title: string): Promise<string | undefined> => {
+    const payload: Record<string, unknown> = {
+      title,
+      bpm: song.bpm,
+      ticksPerBeat: song.ticksPerBeat,
+      durationSec: song.durationSec,
+      notes: noteFields(song),
+      isBuiltIn: false,
+    }
+    if (song.tracks && song.tracks.length > 1) {
+      payload.tracks = song.tracks.map((t) => ({
+        index: t.index,
+        name: t.name,
+        noteCount: t.noteCount,
+        isBestGuess: t.isBestGuess,
+        notes: serializeNotes(t.notes),
+      }))
+    }
     try {
       const res = await fetch('/api/songs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title,
-          bpm: song.bpm,
-          ticksPerBeat: song.ticksPerBeat,
-          durationSec: song.durationSec,
-          notes: noteFields(song),
-          isBuiltIn: false,
-        }),
+        body: JSON.stringify(payload),
       })
       if (res.ok) return (await res.json())._id as string
     } catch { /* DB unavailable */ }
     return saveLocalSong({ ...song, title })
-  }, [noteFields])
+  }, [noteFields, serializeNotes])
 
   // File upload — supports .mid/.midi and .musicxml/.mxl
   const handleFileUpload = useCallback(
@@ -385,14 +442,37 @@ export default function GameCanvas() {
           const bestIdx = bestPart?.index ?? 0
           setSelectedTrackIndex(bestIdx)
 
-          const song = parseMusicXmlToSong(xmlString, name, bestIdx)
-          if (song.notes.length === 0) {
+          // Map all parts to build a single song with embedded tracks
+          const mappedParts = (partInfos as TrackInfo[])
+            .map((p) => ({
+              info: p,
+              mapped: parseMusicXmlToSong(xmlString, name, p.index),
+            }))
+            .filter((p) => p.mapped.notes.length > 0)
+
+          if (mappedParts.length === 0) {
             setError('No playable violin notes found in this MusicXML file.')
             return
           }
-          loadSong(song)
 
-          const id = await saveSong(song, name)
+          const bestMapped = mappedParts.find((p) => p.info.index === bestIdx) ?? mappedParts[0]
+          loadSong(bestMapped.mapped)
+
+          const songToSave: MappedSong = {
+            ...bestMapped.mapped,
+            title: name,
+            tracks: mappedParts.length > 1
+              ? mappedParts.map((p) => ({
+                  index: p.info.index,
+                  name: p.info.name,
+                  noteCount: p.info.noteCount,
+                  isBestGuess: p.info.isBestGuess,
+                  notes: p.mapped.notes,
+                }))
+              : undefined,
+          }
+
+          const id = await saveSong(songToSave, name)
           await fetchPlaylist()
           if (id) setSelectedSongId(id)
           return id
@@ -418,30 +498,40 @@ export default function GameCanvas() {
         const bestIdx = bestTrack ? bestTrack.index : 0
         setSelectedTrackIndex(bestIdx)
 
-        const tracksWithNotes = tracks.filter((t) => mapMidiToViolin(midi, name, t.index).notes.length > 0)
+        // Map all viable tracks to build a single song with embedded tracks
+        const mappedTracks = tracks
+          .map((t) => ({
+            info: t,
+            mapped: mapMidiToViolin(midi, name, t.index),
+          }))
+          .filter((t) => t.mapped.notes.length > 0)
 
-        if (tracksWithNotes.length === 0) {
+        if (mappedTracks.length === 0) {
           setError('No playable violin notes found in this MIDI file.')
           return
         }
 
-        const bestSong = mapMidiToViolin(midi, name, bestIdx)
-        loadSong(bestSong)
+        const bestMapped = mappedTracks.find((t) => t.info.index === bestIdx) ?? mappedTracks[0]
+        loadSong(bestMapped.mapped)
 
-        const saveOne = async (trackIdx: number, trackName: string): Promise<string | undefined> => {
-          const s = mapMidiToViolin(midi, name, trackIdx)
-          if (s.notes.length === 0) return undefined
-          const title = tracksWithNotes.length > 1 ? `${name} — ${trackName}` : name
-          return saveSong(s, title)
+        const songToSave: MappedSong = {
+          ...bestMapped.mapped,
+          title: name,
+          tracks: mappedTracks.length > 1
+            ? mappedTracks.map((t) => ({
+                index: t.info.index,
+                name: t.info.name || `Track ${t.info.index + 1}`,
+                noteCount: t.info.noteCount,
+                isBestGuess: t.info.isBestGuess,
+                notes: t.mapped.notes,
+              }))
+            : undefined,
         }
 
-        const ids = await Promise.all(tracksWithNotes.map((t) => saveOne(t.index, t.name || `Track ${t.index + 1}`)))
-
-        const bestTrackInList = tracksWithNotes.findIndex((t) => t.index === bestIdx)
-        const bestId = ids[bestTrackInList >= 0 ? bestTrackInList : 0]
+        const id = await saveSong(songToSave, name)
         await fetchPlaylist()
-        if (bestId) setSelectedSongId(bestId)
-        return bestId
+        if (id) setSelectedSongId(id)
+        return id
       } catch (err) {
         console.error('MIDI parse error:', err)
         setError(`Failed to parse MIDI file: ${err instanceof Error ? err.message : 'Unknown error'}`)
@@ -470,6 +560,7 @@ export default function GameCanvas() {
         setSelectedTrackIndex(null)
         parsedMidiRef.current = null
         parsedMusicXmlRef.current = null
+        savedTracksRef.current = null
       }
     },
     [selectedSongId, loadSong, fetchPlaylist],
@@ -479,6 +570,8 @@ export default function GameCanvas() {
   const handleTrackChange = useCallback(
     (trackIndex: number) => {
       setSelectedTrackIndex(trackIndex)
+
+      // Path 1: MusicXML still in memory (just uploaded)
       if (parsedMusicXmlRef.current) {
         import('@/lib/musicxml/parser').then(({ parseMusicXmlToSong }) => {
           const song = parseMusicXmlToSong(parsedMusicXmlRef.current!, midiTitleRef.current, trackIndex)
@@ -488,17 +581,74 @@ export default function GameCanvas() {
         })
         return
       }
-      if (!parsedMidiRef.current) return
-      const song = mapMidiToViolin(parsedMidiRef.current, midiTitleRef.current, trackIndex)
-      if (song.notes.length === 0) {
-        setError('No playable violin notes in this track.')
+
+      // Path 2: MIDI still in memory (just uploaded)
+      if (parsedMidiRef.current) {
+        const song = mapMidiToViolin(parsedMidiRef.current, midiTitleRef.current, trackIndex)
+        if (song.notes.length === 0) {
+          setError('No playable violin notes in this track.')
+          return
+        }
+        setError(null)
+        loadSong(song)
         return
       }
-      setError(null)
-      loadSong(song)
+
+      // Path 3: Saved song with embedded tracks
+      if (savedTracksRef.current) {
+        const trackNotes = savedTracksRef.current.get(trackIndex)
+        if (!trackNotes || trackNotes.length === 0) {
+          setError('No playable violin notes in this track.')
+          return
+        }
+        setError(null)
+        const durationSec = trackNotes.length > 0
+          ? trackNotes[trackNotes.length - 1].startTimeSec + trackNotes[trackNotes.length - 1].durationSec
+          : 0
+        const song: MappedSong = {
+          title: songRef.current?.title ?? midiTitleRef.current,
+          bpm: songRef.current?.bpm ?? 120,
+          ticksPerBeat: songRef.current?.ticksPerBeat ?? 480,
+          durationSec,
+          notes: trackNotes,
+        }
+        loadSong(song)
+      }
     },
     [loadSong],
   )
+
+  /** Restore track selector from embedded tracks data */
+  const restoreTracks = useCallback((
+    tracks: Array<{ index: number; name: string; noteCount: number; isBestGuess: boolean; notes: unknown[] }>,
+    isDbFormat: boolean,
+  ) => {
+    if (!tracks || tracks.length <= 1) {
+      setAvailableTracks([])
+      setSelectedTrackIndex(null)
+      savedTracksRef.current = null
+      return
+    }
+    setAvailableTracks(tracks.map((t) => ({
+      index: t.index,
+      name: t.name,
+      noteCount: t.noteCount,
+      inRangePercent: 100,
+      isBestGuess: t.isBestGuess,
+    })))
+    const best = tracks.find((t) => t.isBestGuess) ?? tracks[0]
+    setSelectedTrackIndex(best.index)
+    const map = new Map<number, GameNote[]>()
+    for (const t of tracks) {
+      map.set(
+        t.index,
+        isDbFormat
+          ? dbNotesToGameNotes(t.notes as Record<string, unknown>[])
+          : (t.notes as GameNote[]),
+      )
+    }
+    savedTracksRef.current = map
+  }, [dbNotesToGameNotes])
 
   // Load saved song
   const handleLoadSavedSong = useCallback(
@@ -508,10 +658,13 @@ export default function GameCanvas() {
       // Track position in playlist for auto-advance
       const idx = playlistRef.current.findIndex((s) => s.id === songId)
       if (idx >= 0) { playlistIndexRef.current = idx; setPlaylistIndex(idx) }
-      // Clear track selector for non-MIDI songs
+      // Clear state
       setAvailableTracks([])
       setSelectedTrackIndex(null)
       parsedMidiRef.current = null
+      parsedMusicXmlRef.current = null
+      savedTracksRef.current = null
+
       if (songId === 'twinkle') {
         loadSong(TWINKLE_TWINKLE)
         return
@@ -520,6 +673,9 @@ export default function GameCanvas() {
         const localSong = loadLocalSong(songId)
         if (localSong) {
           loadSong(localSong)
+          if (localSong.tracks && localSong.tracks.length > 1) {
+            restoreTracks(localSong.tracks, false)
+          }
         } else {
           setError('Local song not found.')
         }
@@ -537,38 +693,18 @@ export default function GameCanvas() {
           bpm: data.bpm,
           ticksPerBeat: data.ticksPerBeat,
           durationSec: data.durationSec,
-          notes: data.notes.map((n: Record<string, unknown>, i: number) => {
-            const STRING_TO_LANE: Record<string, number> = { G: 0, D: 1, A: 2, E: 3 }
-            // Old DB records lack position — fully re-derive from violinNotes
-            const needsRecovery = n.position == null || n.staffPosition == null
-            const vNote = needsRecovery ? findNoteByMidi(Number(n.midiNumber)) : undefined
-            return {
-              id: `db-${i}`,
-              midiNumber: n.midiNumber,
-              noteName: vNote?.name ?? n.noteName,
-              string: vNote?.string ?? n.string,
-              finger: vNote?.finger ?? n.finger,
-              lane: vNote ? STRING_TO_LANE[vNote.string] : (n.lane as number),
-              startTimeSec: n.startTimeSec,
-              durationSec: n.durationSec,
-              y: 0,
-              tailHeight: 0,
-              state: 'upcoming' as const,
-              staffPosition: vNote?.staffPosition ?? (n.staffPosition as number) ?? 0,
-              accidental: vNote?.accidental ?? (n.accidental as 'sharp' | 'flat' | undefined),
-              position: vNote?.position ?? (n.position != null ? Number(n.position) : undefined),
-              slurStart: n.slurStart as boolean | undefined,
-              slurEnd: n.slurEnd as boolean | undefined,
-            }
-          }),
+          notes: dbNotesToGameNotes(data.notes),
         }
         loadSong(song)
+        if (data.tracks && data.tracks.length > 1) {
+          restoreTracks(data.tracks, true)
+        }
       } catch (err) {
         console.error('Song load error:', err)
         setError(`Failed to load song: ${err instanceof Error ? err.message : 'Unknown error'}`)
       }
     },
-    [loadSong],
+    [loadSong, dbNotesToGameNotes, restoreTracks],
   )
 
   return (

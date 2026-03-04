@@ -120,12 +120,21 @@ function tickToSec(tick: number, tempoMap: TempoEntry[], ticksPerBeat: number): 
   return seconds;
 }
 
+export interface MappedSongTrack {
+  index: number;
+  name: string;
+  noteCount: number;
+  isBestGuess: boolean;
+  notes: GameNote[];
+}
+
 export interface MappedSong {
   title: string;
   bpm: number;
   ticksPerBeat: number;
   durationSec: number;
   notes: GameNote[];
+  tracks?: MappedSongTrack[];
 }
 
 /** Map a parsed MIDI file to game notes with violin string/finger assignments.

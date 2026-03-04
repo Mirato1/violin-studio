@@ -8,6 +8,7 @@ export interface LocalSongMeta {
   title: string;
   durationSec: number;
   savedAt: number;
+  trackCount?: number;
 }
 
 function getIndex(): LocalSongMeta[] {
@@ -29,6 +30,7 @@ export function saveLocalSong(song: MappedSong): string {
     title: song.title,
     durationSec: song.durationSec,
     savedAt: Date.now(),
+    trackCount: song.tracks?.length,
   };
   localStorage.setItem(LS_SONG_PREFIX + id, JSON.stringify(song));
   setIndex([...getIndex(), meta]);
