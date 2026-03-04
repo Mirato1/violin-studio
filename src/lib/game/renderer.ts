@@ -184,7 +184,7 @@ export function drawNote(
   ctx.shadowColor = "transparent";
   if (note.state !== "passed") {
     ctx.fillStyle = "rgba(0,0,0,0.5)";
-    ctx.font = "bold 16px sans-serif";
+    ctx.font = "bold 20px sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     const label = showFingers ? String(note.finger) : toNotation(note.noteName.replace(/\d/, ""), notation);
@@ -193,28 +193,45 @@ export function drawNote(
     ctx.fillText(label, x, y);
   } else {
     ctx.fillStyle = "rgba(230,215,180,0.4)";
-    ctx.font = "bold 14px sans-serif";
+    ctx.font = "bold 16px sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     const label = showFingers ? String(note.finger) : toNotation(note.noteName.replace(/\d/, ""), notation);
     ctx.fillText(label, x, y);
   }
 
-  // Position badge for non-1st position notes
+  // Position ring + badge for non-1st position notes
   if (note.state !== "passed" && (note.position ?? 1) > 1) {
-    const bx = x + NOTE_RADIUS * 0.65;
-    const by = y - NOTE_RADIUS * 0.65;
+    const pos = note.position!;
+    const ringColors: Record<number, string> = {
+      2: "rgba(100,220,220,0.85)",
+      3: "rgba(255,160,60,0.85)",
+      4: "rgba(180,120,255,0.85)",
+    };
+    const ringColor = ringColors[pos] ?? "rgba(200,200,200,0.85)";
+    const ringWidth = 3;
+    const ringR = NOTE_RADIUS + ringWidth + 1;
+
     ctx.shadowBlur = 0;
     ctx.shadowColor = "transparent";
-    ctx.fillStyle = "rgba(230,215,180,0.9)";
+    ctx.strokeStyle = ringColor;
+    ctx.lineWidth = ringWidth;
     ctx.beginPath();
-    ctx.arc(bx, by, 9, 0, Math.PI * 2);
+    ctx.arc(x, y, ringR, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Number badge on the ring at top-right
+    const bx = x + ringR * 0.72;
+    const by = y - ringR * 0.72;
+    ctx.fillStyle = "rgba(15,10,5,0.9)";
+    ctx.beginPath();
+    ctx.arc(bx, by, 10, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = "#1a1208";
-    ctx.font = "bold 10px sans-serif";
+    ctx.fillStyle = ringColor;
+    ctx.font = "bold 11px sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText(String(note.position), bx, by);
+    ctx.fillText(String(pos), bx, by);
   }
 
   ctx.restore();
