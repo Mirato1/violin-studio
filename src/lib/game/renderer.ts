@@ -578,6 +578,39 @@ function _drawNoteSequence(
     }
   }
 
+  // Slur arcs below the note circles
+  {
+    let slurStartIdx: number | null = null;
+    for (let i = 0; i < n; i++) {
+      const note = notes[i];
+      if (note.slurEnd && slurStartIdx !== null) {
+        const x1 = (slurStartIdx + 0.5) * (LEFT_PANEL_WIDTH / n);
+        const x2 = (i + 0.5) * (LEFT_PANEL_WIDTH / n);
+        const arcR1 = slurStartIdx === activeIdx ? 22 : 16;
+        const arcR2 = i === activeIdx ? 22 : 16;
+        const yBase = STRIP_Y + Math.max(arcR1, arcR2) + 4;
+        const midX = (x1 + x2) / 2;
+        const depth = Math.min(14, (x2 - x1) * 0.22 + 6);
+
+        const alphaStart = slurStartIdx === activeIdx ? 1.0 : activeIdx < 0 ? 0.4 : slurStartIdx < activeIdx ? 0.2 : 0.5;
+        const alphaEnd   = i === activeIdx ? 1.0 : activeIdx < 0 ? 0.4 : i < activeIdx ? 0.2 : 0.5;
+        const a = Math.min(alphaStart, alphaEnd);
+
+        ctx.globalAlpha = a * 0.8;
+        ctx.strokeStyle = "rgba(230, 215, 180, 0.9)";
+        ctx.lineWidth = 1.5;
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.moveTo(x1, yBase);
+        ctx.quadraticCurveTo(midX, yBase + depth, x2, yBase);
+        ctx.stroke();
+
+        slurStartIdx = null;
+      }
+      if (note.slurStart) slurStartIdx = i;
+    }
+  }
+
   ctx.restore();
 }
 
@@ -633,6 +666,55 @@ function _drawPositionLegend(ctx: CanvasRenderingContext2D, activePositions: num
   });
 
   ctx.restore();
+}
+
+/** Draw slur arcs in the main falling-notes area, on the right edge of each note group.
+ *  Must be called AFTER drawEdgeFades so arcs render on top of the hit-line cover. */
+export function drawSlurArcs(ctx: CanvasRenderingContext2D, notes: GameNote[]) {
+  let slurStartNote: GameNote | null = null;
+
+  for (const note of notes) {
+    if (note.slurEnd && slurStartNote) {
+      const rawStartX = LEFT_PANEL_WIDTH + slurStartNote.lane * LANE_WIDTH + LANE_WIDTH / 2;
+      const rawStartY = slurStartNote.y;
+      const endX = LEFT_PANEL_WIDTH + note.lane * LANE_WIDTH + LANE_WIDTH / 2;
+      const endY = note.y;
+
+      // Draw as long as the slurEnd note is still approaching (visible above hit line)
+      if (endY + NOTE_RADIUS > 0 && endY < HIT_LINE_Y) {
+        // Anchor the arc start to the hit line once the slurStart note has passed
+        const startX = rawStartX;
+        const startY = Math.min(rawStartY, HIT_LINE_Y);
+
+        const ax = Math.max(startX, endX) + NOTE_RADIUS + 8;
+        const midY = (startY + endY) / 2;
+        const bulge = Math.min(28, Math.abs(startY - endY) * 0.18 + 12);
+
+        const calcAlpha = (n: GameNote) => {
+          if (n.state !== "upcoming") return 1.0;
+          const FADE_TOP = 60, FADE_FULL = HIT_LINE_Y - 120;
+          return n.y <= FADE_TOP ? 0.35 : n.y >= FADE_FULL ? 1.0
+            : 0.35 + 0.65 * ((n.y - FADE_TOP) / (FADE_FULL - FADE_TOP));
+        };
+        // Opacity driven by the slurEnd note (slurStart may have already passed)
+        const alpha = calcAlpha(note);
+
+        ctx.save();
+        ctx.globalAlpha = alpha * 0.7;
+        ctx.strokeStyle = "rgba(230, 215, 180, 0.9)";
+        ctx.lineWidth = 2;
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.moveTo(startX + NOTE_RADIUS + 4, startY);
+        ctx.bezierCurveTo(ax + bulge, midY, ax + bulge, midY, endX + NOTE_RADIUS + 4, endY);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      slurStartNote = null;
+    }
+    if (note.slurStart) slurStartNote = note;
+  }
 }
 
 export function drawEdgeFades(ctx: CanvasRenderingContext2D) {

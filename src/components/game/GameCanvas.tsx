@@ -7,16 +7,19 @@ import { findNoteByMidi } from '@/data/violinNotes'
 import { parseMidi } from '@/lib/midi/parser'
 import type { MidiFile } from '@/lib/midi/types'
 import { mapMidiToViolin, getTrackInfo, type MappedSong, type TrackInfo } from '@/lib/midi/mapper'
-import { drawBackground, drawNote, drawLeftPanel, drawEdgeFades } from '@/lib/game/renderer'
+import { drawBackground, drawNote, drawLeftPanel, drawEdgeFades, drawSlurArcs } from '@/lib/game/renderer'
 import { saveLocalSong, loadLocalSong, deleteLocalSong } from '@/lib/localSongs'
 import { updateNotes } from '@/lib/game/noteTrack'
 import { CANVAS_WIDTH, CANVAS_HEIGHT, NOTE_RADIUS, LEAD_IN_SEC } from '@/lib/game/constants'
 import { detectSections, getNextSection, type SongSection } from '@/lib/game/sectionDetector'
 import { useAudioEngine } from '@/hooks/useAudioEngine'
 import { useNotation } from '@/contexts/NotationContext'
+import { Music, Gamepad2 } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import GameControls from './GameControls'
 import SongSelector from './SongSelector'
 import ProgressBar from './ProgressBar'
+import ScoreView from './ScoreView'
 
 function deepCloneNotes(notes: GameNote[]): GameNote[] {
   return notes.map((n) => ({ ...n }))
@@ -37,6 +40,7 @@ export default function GameCanvas() {
   const [availableTracks, setAvailableTracks] = useState<TrackInfo[]>([])
   const [selectedTrackIndex, setSelectedTrackIndex] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [view, setView] = useState<'game' | 'score'>('game')
   const { notation } = useNotation()
 
   const [nextSection, setNextSection] = useState<SongSection | null>(null)
@@ -114,6 +118,7 @@ export default function GameCanvas() {
             drawNote(ctx, note, showFingersRef.current, notationRef.current)
           }
           drawEdgeFades(ctx)
+          drawSlurArcs(ctx, notes)
           drawLeftPanel(ctx, activeNote, hintNote, notationRef.current, surroundingNotes, showFingersRef.current, activePositionsRef.current)
 
           // Update upcoming section overlay
@@ -507,26 +512,46 @@ export default function GameCanvas() {
         </div>
       )}
 
-      {/* Canvas area */}
-      <div className='flex-1 min-h-0 relative flex items-center justify-center overflow-hidden'>
-        <canvas
-          ref={canvasRef}
-          width={CANVAS_WIDTH}
-          height={CANVAS_HEIGHT}
-          className='block'
-          style={{ height: '100%', width: 'auto', maxWidth: '100%' }}
-        />
-        {nextSection && (
-          <div className='absolute top-3 right-3 w-[180px] bg-card/90 border border-border rounded-lg p-3 shadow-lg backdrop-blur-sm pointer-events-none'>
-            <p className='text-[10px] text-muted-foreground uppercase tracking-widest mb-1'>Upcoming Section</p>
-            <p className='text-sm font-semibold'>{nextSection.name}</p>
-            <p className='text-xs text-muted-foreground'>{nextSection.noteCount} notes</p>
-          </div>
+      {/* Main area */}
+      <div className='flex-1 min-h-0 relative overflow-hidden'>
+        {/* Game canvas */}
+        <div className={`absolute inset-0 flex items-center justify-center ${view === 'game' ? '' : 'invisible pointer-events-none'}`}>
+          <canvas
+            ref={canvasRef}
+            width={CANVAS_WIDTH}
+            height={CANVAS_HEIGHT}
+            className='block'
+            style={{ height: '100%', width: 'auto', maxWidth: '100%' }}
+          />
+          {nextSection && view === 'game' && (
+            <div className='absolute top-3 right-3 w-[180px] bg-card/90 border border-border rounded-lg p-3 shadow-lg backdrop-blur-sm pointer-events-none'>
+              <p className='text-[10px] text-muted-foreground uppercase tracking-widest mb-1'>Upcoming Section</p>
+              <p className='text-sm font-semibold'>{nextSection.name}</p>
+              <p className='text-xs text-muted-foreground'>{nextSection.noteCount} notes</p>
+            </div>
+          )}
+        </div>
+        {/* Score view */}
+        {view === 'score' && currentSong && (
+          <ScoreView
+            song={currentSong}
+            getCurrentTime={() => currentTimeRef.current}
+            status={status}
+          />
         )}
       </div>
 
       {/* Unified bottom bar: controls | progress | song selector */}
       <div className='shrink-0 flex items-center gap-3 border-t border-border bg-card/50 px-3 py-2'>
+        <Button
+          variant={view === 'score' ? 'secondary' : 'ghost'}
+          size='icon-sm'
+          onClick={() => setView((v) => v === 'game' ? 'score' : 'game')}
+          title={view === 'game' ? 'Show score' : 'Show game'}
+        >
+          {view === 'game' ? <Music className='size-4' /> : <Gamepad2 className='size-4' />}
+        </Button>
+        <div className='h-5 border-l border-border' />
         <GameControls
           status={status}
           speed={speed}
