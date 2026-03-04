@@ -11,6 +11,8 @@ interface ISongNote {
   staffPosition?: number;
   accidental?: string;
   position?: number;
+  slurStart?: boolean;
+  slurEnd?: boolean;
 }
 
 export interface ISong extends Document {
@@ -36,6 +38,8 @@ const SongNoteSchema = new Schema(
     staffPosition: { type: Number },
     accidental: { type: String, enum: ["sharp", "flat"] },
     position: { type: Number },
+    slurStart: { type: Boolean },
+    slurEnd: { type: Boolean },
   },
   { _id: false }
 );

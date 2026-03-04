@@ -171,13 +171,13 @@ export default function SongSelector({
               <span className="ml-1.5">{uploading ? "Uploading..." : "Upload"}</span>
             </Button>
           </TooltipTrigger>
-          <TooltipContent side="top">Upload a MIDI file</TooltipContent>
+          <TooltipContent side="top">Upload a MIDI or MusicXML file</TooltipContent>
         </Tooltip>
 
         <input
           ref={fileInputRef}
           type="file"
-          accept=".mid,.midi"
+          accept=".mid,.midi,.musicxml,.mxl"
           className="hidden"
           onChange={handleFileChange}
         />

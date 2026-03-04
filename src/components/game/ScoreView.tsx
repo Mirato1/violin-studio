@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useEffect, useCallback, useState } from "react";
-import { Renderer, Stave, StaveNote, Voice, Formatter, Accidental, Dot } from "vexflow";
+import { Renderer, Stave, StaveNote, Voice, Formatter, Accidental, Dot, Curve, CurvePosition } from "vexflow";
 import type { MappedSong } from "@/lib/midi/mapper";
 import { convertToScore, type ScoreData } from "@/lib/score/vexflowConverter";
 import type { GameNote } from "@/types/game";
@@ -85,6 +85,9 @@ export default function ScoreView({ song, getCurrentTime, status }: ScoreViewPro
     renderer.resize(svgWidth, svgHeight);
     const context = renderer.getContext();
 
+    // Collect slur-tagged StaveNote instances for the second pass
+    const slurNotes: { staveNote: StaveNote; slurStart?: boolean; slurEnd?: boolean }[] = [];
+
     for (let m = 0; m < totalMeasures; m++) {
       const measure = scoreData.measures[m];
       const lineIndex = Math.floor(m / MEASURES_PER_LINE);
@@ -129,6 +132,10 @@ export default function ScoreView({ song, getCurrentTime, status }: ScoreViewPro
           staveNote.addClass(`score-note-${sn.sourceNoteIndex}`);
         }
 
+        if (sn.slurStart || sn.slurEnd) {
+          slurNotes.push({ staveNote, slurStart: sn.slurStart, slurEnd: sn.slurEnd });
+        }
+
         vexNotes.push(staveNote);
       }
 
@@ -143,6 +150,26 @@ export default function ScoreView({ song, getCurrentTime, status }: ScoreViewPro
         for (const note of vexNotes) {
           try { note.setContext(context).setStave(stave).draw(); } catch { /* skip */ }
         }
+      }
+    }
+
+    // ── Slur pass: draw arcs between slurStart/slurEnd pairs ──────────────
+    {
+      let pendingStart: StaveNote | null = null;
+      for (const entry of slurNotes) {
+        // Close pending slur before opening a new one (handles chained slurs)
+        if (entry.slurEnd && pendingStart) {
+          try {
+            new Curve(pendingStart, entry.staveNote, {
+              thickness: 2,
+              position: CurvePosition.NEAR_HEAD,
+              positionEnd: CurvePosition.NEAR_HEAD,
+              cps: [{ x: 0, y: 30 }, { x: 0, y: 30 }],
+            }).setContext(context).draw();
+          } catch { /* skip if notes not positioned */ }
+          pendingStart = null;
+        }
+        if (entry.slurStart) pendingStart = entry.staveNote;
       }
     }
 

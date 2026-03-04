@@ -240,10 +240,10 @@ const POS_NAMES: Record<number, string> = { 1: "1st", 2: "2nd", 3: "3rd", 4: "4t
 
 /** Draw a vertical fingerboard diagram inside the left panel */
 function drawVerticalFingerboard(ctx: CanvasRenderingContext2D, note: GameNote, notation: NotationMode, hintNote?: GameNote | null) {
-  const fbLeft = 30;
-  const fbTop = 140;
-  const fbWidth = 180;
-  const fbHeight = 510;
+  const fbWidth = 220;
+  const fbLeft = (LEFT_PANEL_WIDTH - fbWidth) / 2; // centered in panel
+  const fbTop = 120;
+  const fbHeight = 480;
   const fbRight = fbLeft + fbWidth;
   const fbBottom = fbTop + fbHeight;
   const nutHeight = 6;
@@ -252,7 +252,7 @@ function drawVerticalFingerboard(ctx: CanvasRenderingContext2D, note: GameNote, 
   const playableHeight = playableBottom - playableTop;
 
   // String X positions (G=left to E=right)
-  const stringPad = 24;
+  const stringPad = 26;
   const stringSpacing = (fbWidth - 2 * stringPad) / 3;
   const stringXs = STRINGS_ORDER.map((_, i) => fbLeft + stringPad + i * stringSpacing);
 
@@ -431,24 +431,24 @@ export function drawLeftPanel(
 
     // Note name (large, centered)
     ctx.fillStyle = color.fill;
-    ctx.font = "bold 40px sans-serif";
+    ctx.font = "bold 52px sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText(toNotationFull(displayNote.noteName, notation), cx, 35);
+    ctx.fillText(toNotationFull(displayNote.noteName, notation), cx, 40);
 
     // String + Finger — single compact line: "A STRING • FINGER 1"
     const fingerLabel = displayNote.finger === 0 ? "OPEN" : `FINGER ${displayNote.finger}`;
     const stringLabel = `${stringToNotation(displayNote.string, notation).toUpperCase()} STRING`;
-    ctx.font = "bold 11px sans-serif";
+    ctx.font = "bold 13px sans-serif";
     ctx.fillStyle = "rgba(230,215,180,0.65)";
-    ctx.fillText(`${stringLabel}  \u2022  ${fingerLabel}`, cx, 62);
+    ctx.fillText(`${stringLabel}  \u2022  ${fingerLabel}`, cx, 74);
 
     // Position — color-coded to match ring colors
     const pos = displayNote.position ?? 1;
     const posLabel = POS_NAMES[pos] ?? `${pos}th`;
     ctx.fillStyle = pos > 1 ? (POSITION_COLORS[pos] ?? "rgba(200,200,200,0.9)") : "rgba(230,215,180,0.35)";
-    ctx.font = pos > 1 ? "bold 12px sans-serif" : "11px sans-serif";
-    ctx.fillText(`${posLabel} Position`, cx, 76);
+    ctx.font = pos > 1 ? "bold 13px sans-serif" : "12px sans-serif";
+    ctx.fillText(`${posLabel} Position`, cx, 92);
 
     // Vertical fingerboard
     drawVerticalFingerboard(ctx, displayNote, notation, isHint ? null : hintNote);
@@ -487,7 +487,7 @@ function _drawNoteSequence(
   showFingers: boolean
 ) {
   if (notes.length === 0) return;
-  const STRIP_Y = CANVAS_HEIGHT - 148; // above position legend header
+  const STRIP_Y = CANVAS_HEIGHT - 200; // above position legend header
   const n = notes.length;
   const activeIdx = activeNote ? notes.indexOf(activeNote) : -1;
 
@@ -497,8 +497,8 @@ function _drawNoteSequence(
   ctx.strokeStyle = "rgba(230,215,180,0.12)";
   ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.moveTo(16, STRIP_Y - 24);
-  ctx.lineTo(LEFT_PANEL_WIDTH - 16, STRIP_Y - 24);
+  ctx.moveTo(20, STRIP_Y - 28);
+  ctx.lineTo(LEFT_PANEL_WIDTH - 20, STRIP_Y - 28);
   ctx.stroke();
 
   for (let i = 0; i < n; i++) {
@@ -508,7 +508,7 @@ function _drawNoteSequence(
     const distFromActive = Math.abs(i - activeIdx);
 
     const x = (i + 0.5) * (LEFT_PANEL_WIDTH / n);
-    const r = isActive ? 18 : 13;
+    const r = isActive ? 22 : 16;
 
     let alpha: number;
     if (activeIdx < 0) {
@@ -543,7 +543,7 @@ function _drawNoteSequence(
     const label = showFingers
       ? (note.finger === 0 ? "O" : String(note.finger))
       : toNotation(note.noteName.replace(/\d/, ""), notation);
-    ctx.font = `bold ${isActive ? 14 : 10}px sans-serif`;
+    ctx.font = `bold ${isActive ? 16 : 12}px sans-serif`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillText(label, x, STRIP_Y);
@@ -554,7 +554,7 @@ function _drawNoteSequence(
       const ringColor = POSITION_COLORS[pos] ?? "rgba(200,200,200,0.85)";
       const ringW = isActive ? 2.5 : 2;
       const ringR = r + ringW + 1;
-      const badgeR = isActive ? 7 : 5;
+      const badgeR = isActive ? 9 : 7;
 
       ctx.globalAlpha = alpha;
       ctx.strokeStyle = ringColor;
@@ -571,7 +571,7 @@ function _drawNoteSequence(
       ctx.arc(bx, by, badgeR, 0, Math.PI * 2);
       ctx.fill();
       ctx.fillStyle = ringColor;
-      ctx.font = `bold ${isActive ? 9 : 7}px sans-serif`;
+      ctx.font = `bold ${isActive ? 11 : 9}px sans-serif`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.fillText(String(pos), bx, by);
@@ -586,25 +586,25 @@ function _drawPositionLegend(ctx: CanvasRenderingContext2D, activePositions: num
 
   const POS_LABELS: Record<number, string> = { 1:"1st", 2:"2nd", 3:"3rd", 4:"4th", 5:"5th", 6:"6th", 7:"7th" };
   const sorted = [...activePositions].sort((a, b) => a - b);
-  const ringR = 7;
-  const rowH = 20;
+  const ringR = 12;
+  const rowH = 28;
   const useTwoCols = sorted.length > 3;
   const nRows = useTwoCols ? Math.ceil(sorted.length / 2) : sorted.length;
-  const headerGap = 20;
+  const headerGap = 28;
   const totalH = nRows * rowH + headerGap;
-  const startY = CANVAS_HEIGHT - totalH - 8;
+  const startY = CANVAS_HEIGHT - totalH - 14;
 
   ctx.save();
   ctx.globalAlpha = 1;
 
   // Header
-  ctx.fillStyle = "rgba(230,215,180,0.35)";
-  ctx.font = "bold 9px sans-serif";
+  ctx.fillStyle = "rgba(230,215,180,0.4)";
+  ctx.font = "bold 11px sans-serif";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillText("ACTIVE POSITIONS", LEFT_PANEL_WIDTH / 2, startY);
 
-  const colX = useTwoCols ? [25, 165] : [LEFT_PANEL_WIDTH / 2 - 40];
+  const colX = useTwoCols ? [45, 200] : [LEFT_PANEL_WIDTH / 2 - 30];
 
   sorted.forEach((pos, idx) => {
     const col = useTwoCols ? (idx < nRows ? 0 : 1) : 0;
@@ -615,21 +615,21 @@ function _drawPositionLegend(ctx: CanvasRenderingContext2D, activePositions: num
     const label = POS_LABELS[pos] ?? `${pos}th`;
 
     ctx.strokeStyle = color;
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 2.5;
     ctx.beginPath();
     ctx.arc(ringX, ly, ringR, 0, Math.PI * 2);
     ctx.stroke();
 
     ctx.fillStyle = color;
-    ctx.font = "bold 9px sans-serif";
+    ctx.font = "bold 11px sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillText(String(pos), ringX, ly);
 
-    ctx.fillStyle = "rgba(230,215,180,0.7)";
-    ctx.font = "11px sans-serif";
+    ctx.fillStyle = "rgba(230,215,180,0.75)";
+    ctx.font = "13px sans-serif";
     ctx.textAlign = "left";
-    ctx.fillText(label, ringX + ringR + 5, ly);
+    ctx.fillText(label, ringX + ringR + 6, ly);
   });
 
   ctx.restore();

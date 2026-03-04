@@ -15,6 +15,8 @@ export interface GameNote {
   staffPosition?: number;
   accidental?: "sharp" | "flat";
   position?: number;
+  slurStart?: boolean;
+  slurEnd?: boolean;
 }
 
 export interface GameState {

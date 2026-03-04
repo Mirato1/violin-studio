@@ -10,6 +10,8 @@ export interface ScoreNote {
   accidentals: string[];
   sourceNoteIndex: number;
   startTimeSec: number;
+  slurStart?: boolean;
+  slurEnd?: boolean;
 }
 
 export interface ScoreMeasure {
@@ -202,6 +204,8 @@ function buildMeasures(
       accidentals: [acc],
       sourceNoteIndex: i,
       startTimeSec: note.startTimeSec,
+      slurStart: note.slurStart,
+      slurEnd: note.slurEnd,
     });
     cursor = note.startTimeSec + q.beats * beatDuration;
   }

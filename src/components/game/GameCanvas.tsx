@@ -47,6 +47,7 @@ export default function GameCanvas() {
   const notesRef = useRef<GameNote[]>([])
   const songRef = useRef<MappedSong | null>(null)
   const parsedMidiRef = useRef<MidiFile | null>(null)
+  const parsedMusicXmlRef = useRef<string | null>(null)
   const midiTitleRef = useRef('')
   const speedRef = useRef(speed)
   const showFingersRef = useRef(showFingers)
@@ -255,16 +256,94 @@ export default function GameCanvas() {
     [audio],
   )
 
-  // MIDI file upload — saves all tracks with notes, returns the best-track _id
+  // Shared helper to serialize note fields for DB/local storage
+  const noteFields = useCallback((s: MappedSong) =>
+    s.notes.map((n) => ({
+      midiNumber: n.midiNumber,
+      noteName: n.noteName,
+      string: n.string,
+      finger: n.finger,
+      lane: n.lane,
+      startTimeSec: n.startTimeSec,
+      durationSec: n.durationSec,
+      staffPosition: n.staffPosition,
+      accidental: n.accidental,
+      position: n.position,
+      slurStart: n.slurStart,
+      slurEnd: n.slurEnd,
+    })), [])
+
+  const saveSong = useCallback(async (song: MappedSong, title: string): Promise<string | undefined> => {
+    try {
+      const res = await fetch('/api/songs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title,
+          bpm: song.bpm,
+          ticksPerBeat: song.ticksPerBeat,
+          durationSec: song.durationSec,
+          notes: noteFields(song),
+          isBuiltIn: false,
+        }),
+      })
+      if (res.ok) return (await res.json())._id as string
+    } catch { /* DB unavailable */ }
+    return saveLocalSong({ ...song, title })
+  }, [noteFields])
+
+  // File upload — supports .mid/.midi and .musicxml/.mxl
   const handleFileUpload = useCallback(
     async (file: File): Promise<string | undefined> => {
       setError(null)
+      const ext = file.name.split('.').pop()?.toLowerCase()
+
+      // ── MusicXML path ─────────────────────────────────────────────────────
+      if (ext === 'musicxml' || ext === 'mxl') {
+        try {
+          const { getMusicXmlPartInfo, parseMusicXmlToSong, decompressMxlToXml } = await import('@/lib/musicxml/parser')
+          const buffer = await file.arrayBuffer()
+          const name = file.name.replace(/\.(musicxml|mxl)$/i, '')
+
+          const xmlString = ext === 'mxl'
+            ? await decompressMxlToXml(buffer)
+            : new TextDecoder().decode(buffer)
+
+          parsedMusicXmlRef.current = xmlString
+          parsedMidiRef.current = null
+          midiTitleRef.current = name
+
+          const partInfos = getMusicXmlPartInfo(xmlString)
+          setAvailableTracks(partInfos as TrackInfo[])
+          const bestPart = partInfos.find((p) => p.isBestGuess)
+          const bestIdx = bestPart?.index ?? 0
+          setSelectedTrackIndex(bestIdx)
+
+          const song = parseMusicXmlToSong(xmlString, name, bestIdx)
+          if (song.notes.length === 0) {
+            setError('No playable violin notes found in this MusicXML file.')
+            return
+          }
+          loadSong(song)
+
+          const id = await saveSong(song, name)
+          if (id) setSelectedSongId(id)
+          return id
+        } catch (err) {
+          console.error('MusicXML parse error:', err)
+          setError(`Failed to parse MusicXML: ${err instanceof Error ? err.message : 'Unknown error'}`)
+        }
+        return
+      }
+
+      // ── MIDI path ─────────────────────────────────────────────────────────
       try {
         const buffer = await file.arrayBuffer()
         const midi = parseMidi(buffer)
         const name = file.name.replace(/\.(mid|midi)$/i, '')
 
         parsedMidiRef.current = midi
+        parsedMusicXmlRef.current = null
         midiTitleRef.current = name
         const tracks = getTrackInfo(midi)
         setAvailableTracks(tracks)
@@ -272,7 +351,6 @@ export default function GameCanvas() {
         const bestIdx = bestTrack ? bestTrack.index : 0
         setSelectedTrackIndex(bestIdx)
 
-        // Filter tracks that have playable notes
         const tracksWithNotes = tracks.filter((t) => mapMidiToViolin(midi, name, t.index).notes.length > 0)
 
         if (tracksWithNotes.length === 0) {
@@ -280,47 +358,14 @@ export default function GameCanvas() {
           return
         }
 
-        // Load the best track immediately for playback
         const bestSong = mapMidiToViolin(midi, name, bestIdx)
         loadSong(bestSong)
-
-        // Save each track as a separate song entry
-        const noteFields = (s: typeof bestSong) =>
-          s.notes.map((n) => ({
-            midiNumber: n.midiNumber,
-            noteName: n.noteName,
-            string: n.string,
-            finger: n.finger,
-            lane: n.lane,
-            startTimeSec: n.startTimeSec,
-            durationSec: n.durationSec,
-            staffPosition: n.staffPosition,
-            accidental: n.accidental,
-            position: n.position,
-          }))
 
         const saveOne = async (trackIdx: number, trackName: string): Promise<string | undefined> => {
           const s = mapMidiToViolin(midi, name, trackIdx)
           if (s.notes.length === 0) return undefined
           const title = tracksWithNotes.length > 1 ? `${name} — ${trackName}` : name
-          try {
-            const res = await fetch('/api/songs', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                title,
-                bpm: s.bpm,
-                ticksPerBeat: s.ticksPerBeat,
-                durationSec: s.durationSec,
-                notes: noteFields(s),
-                isBuiltIn: false,
-              }),
-            })
-            if (res.ok) return (await res.json())._id as string
-          } catch {
-            /* DB unavailable */
-          }
-          return saveLocalSong({ ...s, title })
+          return saveSong(s, title)
         }
 
         const ids = await Promise.all(tracksWithNotes.map((t) => saveOne(t.index, t.name || `Track ${t.index + 1}`)))
@@ -334,7 +379,7 @@ export default function GameCanvas() {
         setError(`Failed to parse MIDI file: ${err instanceof Error ? err.message : 'Unknown error'}`)
       }
     },
-    [loadSong],
+    [loadSong, saveSong],
   )
 
   // Delete song
@@ -355,16 +400,26 @@ export default function GameCanvas() {
         setAvailableTracks([])
         setSelectedTrackIndex(null)
         parsedMidiRef.current = null
+        parsedMusicXmlRef.current = null
       }
     },
     [selectedSongId, loadSong],
   )
 
-  // Track change (re-map same MIDI with different track)
+  // Track/part change
   const handleTrackChange = useCallback(
     (trackIndex: number) => {
-      if (!parsedMidiRef.current) return
       setSelectedTrackIndex(trackIndex)
+      if (parsedMusicXmlRef.current) {
+        import('@/lib/musicxml/parser').then(({ parseMusicXmlToSong }) => {
+          const song = parseMusicXmlToSong(parsedMusicXmlRef.current!, midiTitleRef.current, trackIndex)
+          if (song.notes.length === 0) { setError('No playable violin notes in this part.'); return }
+          setError(null)
+          loadSong(song)
+        })
+        return
+      }
+      if (!parsedMidiRef.current) return
       const song = mapMidiToViolin(parsedMidiRef.current, midiTitleRef.current, trackIndex)
       if (song.notes.length === 0) {
         setError('No playable violin notes in this track.')
@@ -430,6 +485,8 @@ export default function GameCanvas() {
               staffPosition: vNote?.staffPosition ?? (n.staffPosition as number) ?? 0,
               accidental: vNote?.accidental ?? (n.accidental as 'sharp' | 'flat' | undefined),
               position: vNote?.position ?? (n.position != null ? Number(n.position) : undefined),
+              slurStart: n.slurStart as boolean | undefined,
+              slurEnd: n.slurEnd as boolean | undefined,
             }
           }),
         }
