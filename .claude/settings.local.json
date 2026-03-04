@@ -12,7 +12,8 @@
       "Bash(npx shadcn@latest add button card dialog select slider tabs toggle tooltip progress -y)",
       "Bash(npx next build)",
       "Bash(npx tsc --noEmit)",
-      "Bash(npm run build)"
+      "Bash(npm run build)",
+      "Bash(node -e \"const vf = require\\(''vexflow''\\); console.log\\(Object.keys\\(vf\\).filter\\(k => /^\\(Renderer|Stave|StaveNote|Voice|Formatter|Accidental|Dot|Flow\\)$/.test\\(k\\)\\).join\\('', ''\\)\\)\")"
     ]
   }
 }

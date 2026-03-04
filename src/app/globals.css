@@ -150,3 +150,21 @@
     background: linear-gradient(90deg, transparent, oklch(0.78 0.16 85 / 0.5), transparent);
   }
 }
+
+/* VexFlow active note highlighting */
+.vf-active-note path {
+  fill: oklch(0.78 0.16 85) !important;
+  stroke: oklch(0.78 0.16 85) !important;
+  transition: fill 0.15s, stroke 0.15s;
+}
+
+.score-container::-webkit-scrollbar {
+  width: 6px;
+}
+.score-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+.score-container::-webkit-scrollbar-thumb {
+  background: oklch(0.78 0.16 85 / 0.3);
+  border-radius: 3px;
+}

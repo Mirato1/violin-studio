@@ -21,6 +21,7 @@ interface SavedSong {
 interface SongSelectorProps {
   onFileUpload: (file: File) => Promise<string | undefined>;
   onSelectSong: (songId: string) => void;
+  onDeleteSong: (songId: string) => Promise<void>;
   onTrackChange: (trackIndex: number) => void;
   selectedSongId: string;
   availableTracks: TrackInfo[];
@@ -30,6 +31,7 @@ interface SongSelectorProps {
 export default function SongSelector({
   onFileUpload,
   onSelectSong,
+  onDeleteSong,
   onTrackChange,
   selectedSongId,
   availableTracks,
@@ -37,6 +39,7 @@ export default function SongSelector({
 }: SongSelectorProps) {
   const [songs, setSongs] = useState<SavedSong[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const refreshSongs = useCallback(() => {
@@ -65,6 +68,17 @@ export default function SongSelector({
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
+  const handleDelete = async () => {
+    if (!window.confirm("Delete this song?")) return;
+    setDeleting(true);
+    try {
+      await onDeleteSong(selectedSongId);
+      refreshSongs();
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   return (
     <div className="flex flex-wrap items-center gap-3">
       <Select value={selectedSongId} onValueChange={onSelectSong}>
@@ -80,6 +94,19 @@ export default function SongSelector({
           ))}
         </SelectContent>
       </Select>
+
+      {selectedSongId !== "twinkle" && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 px-2 text-destructive hover:text-destructive"
+          onClick={handleDelete}
+          disabled={deleting}
+          aria-label="Delete song"
+        >
+          {deleting ? "..." : "\u2715"}
+        </Button>
+      )}
 
       {availableTracks.length > 1 && selectedTrackIndex !== null && (
         <Select

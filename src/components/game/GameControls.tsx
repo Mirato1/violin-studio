@@ -11,12 +11,14 @@ interface GameControlsProps {
   volume: number;
   isMuted: boolean;
   showFingers: boolean;
+  viewMode: "play" | "score";
   onPlayPause: () => void;
   onRestart: () => void;
   onSpeedChange: (speed: number) => void;
   onVolumeChange: (vol: number) => void;
   onMuteToggle: () => void;
   onFingersToggle: () => void;
+  onViewModeToggle: () => void;
 }
 
 export default function GameControls({
@@ -25,12 +27,14 @@ export default function GameControls({
   volume,
   isMuted,
   showFingers,
+  viewMode,
   onPlayPause,
   onRestart,
   onSpeedChange,
   onVolumeChange,
   onMuteToggle,
   onFingersToggle,
+  onViewModeToggle,
 }: GameControlsProps) {
   return (
     <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-card/50 px-4 py-2.5">
@@ -94,6 +98,18 @@ export default function GameControls({
         aria-label="Toggle finger numbers vs note names"
       >
         {showFingers ? "Fingers" : "Notes"}
+      </Toggle>
+
+      <div className="h-6 border-l border-border" />
+
+      {/* View mode toggle */}
+      <Toggle
+        pressed={viewMode === "score"}
+        onPressedChange={onViewModeToggle}
+        size="sm"
+        aria-label="Toggle between falling notes and sheet music"
+      >
+        {viewMode === "score" ? "Score" : "Play Along"}
       </Toggle>
     </div>
   );
