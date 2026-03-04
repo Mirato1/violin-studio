@@ -10,7 +10,7 @@ import { mapMidiToViolin, getTrackInfo, type MappedSong, type TrackInfo } from "
 import { drawBackground, drawNote, drawLeftPanel } from "@/lib/game/renderer";
 import { saveLocalSong, loadLocalSong, deleteLocalSong } from "@/lib/localSongs";
 import { updateNotes } from "@/lib/game/noteTrack";
-import { CANVAS_WIDTH, CANVAS_HEIGHT } from "@/lib/game/constants";
+import { CANVAS_WIDTH, CANVAS_HEIGHT, NOTE_RADIUS } from "@/lib/game/constants";
 import { useAudioEngine } from "@/hooks/useAudioEngine";
 import { useNotation } from "@/contexts/NotationContext";
 import GameControls from "./GameControls";
@@ -80,6 +80,31 @@ export default function GameCanvas() {
           const notes = notesRef.current;
           const activeNote = updateNotes(notes, currentTimeRef.current, speedRef.current);
           const hintNote = notes.find(n => n.state === "upcoming") ?? null;
+
+          // Enforce minimum visual spacing per lane so circles don't overlap (y is recalculated each frame)
+          const MIN_NOTE_GAP = NOTE_RADIUS * 2 + 2;
+          for (let lane = 0; lane < 4; lane++) {
+            const laneNotes = notes
+              .filter(n => n.lane === lane && n.state === "upcoming")
+              .sort((a, b) => b.y - a.y); // y desc = closest to hit line first
+            for (let i = 1; i < laneNotes.length; i++) {
+              const minY = laneNotes[i - 1].y - MIN_NOTE_GAP;
+              if (laneNotes[i].y > minY) laneNotes[i].y = minY;
+            }
+          }
+
+          // Clip each note's tail so it doesn't visually merge into the next note in the same lane
+          for (let i = 0; i < notes.length; i++) {
+            if (notes[i].tailHeight <= 0) continue;
+            for (let j = i + 1; j < notes.length; j++) {
+              if (notes[j].lane === notes[i].lane) {
+                const maxTail = notes[i].y - notes[j].y - NOTE_RADIUS;
+                notes[i].tailHeight = Math.min(notes[i].tailHeight, Math.max(0, maxTail));
+                break;
+              }
+            }
+          }
+
           drawBackground(ctx, notationRef.current);
           for (const note of notes) {
             drawNote(ctx, note, showFingersRef.current, notationRef.current);

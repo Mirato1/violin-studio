@@ -184,7 +184,7 @@ export function drawNote(
   ctx.shadowColor = "transparent";
   if (note.state !== "passed") {
     ctx.fillStyle = "rgba(0,0,0,0.5)";
-    ctx.font = "bold 15px sans-serif";
+    ctx.font = "bold 13px sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     const label = showFingers ? String(note.finger) : toNotation(note.noteName.replace(/\d/, ""), notation);
@@ -193,7 +193,7 @@ export function drawNote(
     ctx.fillText(label, x, y);
   } else {
     ctx.fillStyle = "rgba(230,215,180,0.4)";
-    ctx.font = "bold 13px sans-serif";
+    ctx.font = "bold 11px sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     const label = showFingers ? String(note.finger) : toNotation(note.noteName.replace(/\d/, ""), notation);
@@ -202,16 +202,16 @@ export function drawNote(
 
   // Position badge for non-1st position notes
   if (note.state !== "passed" && (note.position ?? 1) > 1) {
-    const bx = x + NOTE_RADIUS * 0.6;
-    const by = y - NOTE_RADIUS * 0.6;
+    const bx = x + NOTE_RADIUS * 0.65;
+    const by = y - NOTE_RADIUS * 0.65;
     ctx.shadowBlur = 0;
     ctx.shadowColor = "transparent";
     ctx.fillStyle = "rgba(230,215,180,0.9)";
     ctx.beginPath();
-    ctx.arc(bx, by, 9, 0, Math.PI * 2);
+    ctx.arc(bx, by, 7, 0, Math.PI * 2);
     ctx.fill();
     ctx.fillStyle = "#1a1208";
-    ctx.font = "bold 9px sans-serif";
+    ctx.font = "bold 8px sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillText(String(note.position), bx, by);
