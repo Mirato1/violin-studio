@@ -9,6 +9,7 @@ import {
   NOTE_RADIUS,
   LANE_COUNT,
   LANE_WIDTH,
+  ECHO_ZONE,
 } from "./constants";
 
 const STRINGS_ORDER: ViolinString[] = ["G", "D", "A", "E"];
@@ -32,7 +33,8 @@ export function drawBackground(ctx: CanvasRenderingContext2D, notation: Notation
   ctx.fillStyle = "rgba(12, 10, 6, 0.95)";
   ctx.fillRect(0, 0, LEFT_PANEL_WIDTH, CANVAS_HEIGHT);
 
-  // Lane backgrounds with subtle gradient
+  // Lane backgrounds with subtle gradient (reduced opacity for better note contrast)
+  ctx.globalAlpha = 0.6;
   for (let i = 0; i < LANE_COUNT; i++) {
     const s = STRINGS_ORDER[i];
     const color = STRING_COLORS[s];
@@ -45,9 +47,10 @@ export function drawBackground(ctx: CanvasRenderingContext2D, notation: Notation
     ctx.fillStyle = grad;
     ctx.fillRect(laneX, 0, LANE_WIDTH, CANVAS_HEIGHT);
   }
+  ctx.globalAlpha = 1;
 
-  // Lane dividers
-  ctx.strokeStyle = "rgba(210,180,120,0.08)";
+  // Lane dividers — more visible
+  ctx.strokeStyle = "rgba(210,180,120,0.18)";
   ctx.lineWidth = 1;
   for (let i = 1; i < LANE_COUNT; i++) {
     const x = LEFT_PANEL_WIDTH + i * LANE_WIDTH;
@@ -729,9 +732,16 @@ export function drawEdgeFades(ctx: CanvasRenderingContext2D) {
   ctx.fillStyle = topGrad;
   ctx.fillRect(lanesX, 0, lanesW, 60);
 
-  // Cover everything below the hit line — hides passed notes and bottom half of active note circle
+  // Echo zone — passed notes fade out gracefully below the hit line
+  const echoGrad = ctx.createLinearGradient(0, HIT_LINE_Y, 0, HIT_LINE_Y + ECHO_ZONE);
+  echoGrad.addColorStop(0, "rgba(18,14,8,0)");
+  echoGrad.addColorStop(1, BG);
+  ctx.fillStyle = echoGrad;
+  ctx.fillRect(lanesX, HIT_LINE_Y + 1, lanesW, ECHO_ZONE);
+
+  // Cover everything below the echo zone
   ctx.fillStyle = BG;
-  ctx.fillRect(lanesX, HIT_LINE_Y + 1, lanesW, CANVAS_HEIGHT - HIT_LINE_Y - 1);
+  ctx.fillRect(lanesX, HIT_LINE_Y + ECHO_ZONE, lanesW, CANVAS_HEIGHT - HIT_LINE_Y - ECHO_ZONE);
 
   // Redraw target rings on top of the cover so they're always visible
   for (let i = 0; i < LANE_COUNT; i++) {
