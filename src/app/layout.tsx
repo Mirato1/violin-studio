@@ -32,7 +32,7 @@ export default function RootLayout({
       >
         <NotationProvider>
           <Navbar />
-          <main className="mx-auto max-w-5xl px-4 py-6">{children}</main>
+          <main>{children}</main>
         </NotationProvider>
       </body>
     </html>

@@ -86,7 +86,7 @@ export default function SongSelector({
 
   return (
     <TooltipProvider delayDuration={300}>
-      <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-card/50 px-4 py-2.5">
+      <div className="flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-2 text-muted-foreground">
           <Music2 className="size-4" />
           <span className="text-xs font-medium">Song</span>

@@ -50,7 +50,7 @@ export default function GameControls({
 }: GameControlsProps) {
   return (
     <TooltipProvider delayDuration={300}>
-      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card/50 px-3 py-2">
+      <div className="flex flex-wrap items-center gap-2">
         {/* Playback */}
         <div className="flex items-center gap-1">
           <Tooltip>

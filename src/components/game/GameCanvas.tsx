@@ -398,62 +398,69 @@ export default function GameCanvas() {
   );
 
   return (
-    <div className="flex flex-col gap-3">
-      <SongSelector
-        onFileUpload={handleFileUpload}
-        onSelectSong={handleLoadSavedSong}
-        onDeleteSong={handleDeleteSong}
-        onTrackChange={handleTrackChange}
-        selectedSongId={selectedSongId}
-        availableTracks={availableTracks}
-        selectedTrackIndex={selectedTrackIndex}
-      />
-
+    <div className="flex flex-col overflow-hidden" style={{ height: "calc(100vh - 58px)" }}>
       {error && (
-        <div className="rounded-md border border-destructive bg-destructive/10 px-4 py-2 text-sm text-destructive">
+        <div className="shrink-0 px-4 py-1 text-sm text-destructive bg-destructive/10 border-b border-destructive/30">
           {error}
         </div>
       )}
 
-      {viewMode === "play" ? (
-        <canvas
-          ref={canvasRef}
-          width={CANVAS_WIDTH}
-          height={CANVAS_HEIGHT}
-          className="w-full rounded-lg border border-border"
-        />
-      ) : (
-        currentSong && (
-          <ScoreView
-            song={currentSong}
-            getCurrentTime={() => currentTimeRef.current}
-            status={status}
+      {/* Canvas / score area */}
+      <div className="flex-1 min-h-0 flex items-center justify-center overflow-hidden">
+        {viewMode === "play" ? (
+          <canvas
+            ref={canvasRef}
+            width={CANVAS_WIDTH}
+            height={CANVAS_HEIGHT}
+            className="block rounded-lg border border-border"
+            style={{ height: "100%", width: "auto", maxWidth: "100%" }}
           />
-        )
-      )}
+        ) : (
+          currentSong && (
+            <ScoreView
+              song={currentSong}
+              getCurrentTime={() => currentTimeRef.current}
+              status={status}
+            />
+          )
+        )}
+      </div>
 
-      <ProgressBar
-        getCurrentTime={() => currentTimeRef.current}
-        totalDuration={songRef.current?.durationSec ?? 0}
-        onSeek={handleSeek}
-        status={status}
-      />
-
-      <GameControls
-        status={status}
-        speed={speed}
-        volume={volume}
-        isMuted={isMuted}
-        showFingers={showFingers}
-        viewMode={viewMode}
-        onPlayPause={handlePlayPause}
-        onRestart={handleRestart}
-        onSpeedChange={handleSpeedChange}
-        onVolumeChange={setVolume}
-        onMuteToggle={() => setIsMuted((m) => !m)}
-        onFingersToggle={() => setShowFingers((f) => !f)}
-        onViewModeToggle={() => setViewMode((m) => m === "play" ? "score" : "play")}
-      />
+      {/* Unified bottom bar: controls | progress | song selector */}
+      <div className="shrink-0 flex items-center gap-3 border-t border-border bg-card/50 px-3 py-2">
+        <GameControls
+          status={status}
+          speed={speed}
+          volume={volume}
+          isMuted={isMuted}
+          showFingers={showFingers}
+          viewMode={viewMode}
+          onPlayPause={handlePlayPause}
+          onRestart={handleRestart}
+          onSpeedChange={handleSpeedChange}
+          onVolumeChange={setVolume}
+          onMuteToggle={() => setIsMuted((m) => !m)}
+          onFingersToggle={() => setShowFingers((f) => !f)}
+          onViewModeToggle={() => setViewMode((m) => m === "play" ? "score" : "play")}
+        />
+        <div className="h-5 border-l border-border" />
+        <ProgressBar
+          getCurrentTime={() => currentTimeRef.current}
+          totalDuration={songRef.current?.durationSec ?? 0}
+          onSeek={handleSeek}
+          status={status}
+        />
+        <div className="h-5 border-l border-border" />
+        <SongSelector
+          onFileUpload={handleFileUpload}
+          onSelectSong={handleLoadSavedSong}
+          onDeleteSong={handleDeleteSong}
+          onTrackChange={handleTrackChange}
+          selectedSongId={selectedSongId}
+          availableTracks={availableTracks}
+          selectedTrackIndex={selectedTrackIndex}
+        />
+      </div>
     </div>
   );
 }

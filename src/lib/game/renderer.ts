@@ -125,14 +125,14 @@ export function drawNote(
   if (note.state === "active") {
     fillColor = color.glow;
     ctx.shadowColor = color.glow;
-    ctx.shadowBlur = 25;
+    ctx.shadowBlur = 20;
   } else if (note.state === "passed") {
     fillColor = color.faded;
     alpha = 0.35;
   } else {
     fillColor = color.fill;
     ctx.shadowColor = color.fill;
-    ctx.shadowBlur = 8;
+    ctx.shadowBlur = 6;
   }
 
   ctx.globalAlpha = alpha;
@@ -184,7 +184,7 @@ export function drawNote(
   ctx.shadowColor = "transparent";
   if (note.state !== "passed") {
     ctx.fillStyle = "rgba(0,0,0,0.5)";
-    ctx.font = "bold 13px sans-serif";
+    ctx.font = "bold 16px sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     const label = showFingers ? String(note.finger) : toNotation(note.noteName.replace(/\d/, ""), notation);
@@ -193,7 +193,7 @@ export function drawNote(
     ctx.fillText(label, x, y);
   } else {
     ctx.fillStyle = "rgba(230,215,180,0.4)";
-    ctx.font = "bold 11px sans-serif";
+    ctx.font = "bold 14px sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     const label = showFingers ? String(note.finger) : toNotation(note.noteName.replace(/\d/, ""), notation);
@@ -208,10 +208,10 @@ export function drawNote(
     ctx.shadowColor = "transparent";
     ctx.fillStyle = "rgba(230,215,180,0.9)";
     ctx.beginPath();
-    ctx.arc(bx, by, 7, 0, Math.PI * 2);
+    ctx.arc(bx, by, 9, 0, Math.PI * 2);
     ctx.fill();
     ctx.fillStyle = "#1a1208";
-    ctx.font = "bold 8px sans-serif";
+    ctx.font = "bold 10px sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillText(String(note.position), bx, by);

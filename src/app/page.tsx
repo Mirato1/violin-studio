@@ -24,7 +24,7 @@ const features = [
 
 export default function HomePage() {
   return (
-    <div className="flex flex-col items-center gap-10 py-16">
+    <div className="flex flex-col items-center gap-10 px-4 py-16">
       <div className="text-center">
         <h1 className="gold-text text-5xl font-bold tracking-tight">
           Violin Studio

@@ -85,7 +85,7 @@ export default function ProgressBar({ getCurrentTime, totalDuration, onSeek, sta
   const pct = `${(progress * 100).toFixed(2)}%`;
 
   return (
-    <div className="flex items-center gap-3 rounded-lg border border-border bg-card/50 px-4 py-2">
+    <div className="flex items-center gap-3 flex-1 min-w-0">
       <span className="w-10 text-right font-mono text-xs text-muted-foreground">
         {formatTime(displayTime)}
       </span>
