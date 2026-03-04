@@ -8,6 +8,9 @@ interface ISongNote {
   lane: number;
   startTimeSec: number;
   durationSec: number;
+  staffPosition?: number;
+  accidental?: string;
+  position?: number;
 }
 
 export interface ISong extends Document {
@@ -30,6 +33,9 @@ const SongNoteSchema = new Schema(
     lane: { type: Number, min: 0, max: 3, required: true },
     startTimeSec: { type: Number, required: true },
     durationSec: { type: Number, required: true },
+    staffPosition: { type: Number },
+    accidental: { type: String, enum: ["sharp", "flat"] },
+    position: { type: Number },
   },
   { _id: false }
 );

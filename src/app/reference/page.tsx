@@ -8,7 +8,7 @@ import type { PositionNumber } from "@/lib/positions";
 import StringFilter from "@/components/reference/StringFilter";
 import NoteCard from "@/components/reference/NoteCard";
 import FingerboardChart from "@/components/reference/FingerboardChart";
-import PositionGuide from "@/components/reference/PositionGuide";
+import NeckPositionMap from "@/components/reference/NeckPositionMap";
 import MiniStaff from "@/components/reference/MiniStaff";
 import { useNotation } from "@/contexts/NotationContext";
 import { toNotation, stringToNotation } from "@/lib/notation";
@@ -86,8 +86,8 @@ export default function ReferencePage() {
         </div>
       </div>
 
-      {/* Hand placement guide for beginners */}
-      <PositionGuide position={selectedPosition} />
+      {/* Visual neck position map for beginners */}
+      <NeckPositionMap selectedPosition={selectedPosition} />
 
       <FingerboardChart
         selectedString={selectedString}

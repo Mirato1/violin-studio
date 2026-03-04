@@ -3,10 +3,11 @@
 import { useRef, useState, useCallback, useEffect } from "react";
 import type { GameNote } from "@/types/game";
 import { TWINKLE_TWINKLE } from "@/data/twinkleTwinkle";
+import { findNoteByMidi } from "@/data/violinNotes";
 import { parseMidi } from "@/lib/midi/parser";
 import type { MidiFile } from "@/lib/midi/types";
 import { mapMidiToViolin, getTrackInfo, type MappedSong, type TrackInfo } from "@/lib/midi/mapper";
-import { drawBackground, drawNote, drawOverlay } from "@/lib/game/renderer";
+import { drawBackground, drawNote, drawLeftPanel } from "@/lib/game/renderer";
 import { updateNotes } from "@/lib/game/noteTrack";
 import { CANVAS_WIDTH, CANVAS_HEIGHT } from "@/lib/game/constants";
 import { useAudioEngine } from "@/hooks/useAudioEngine";
@@ -81,7 +82,7 @@ export default function GameCanvas() {
           for (const note of notes) {
             drawNote(ctx, note, showFingersRef.current, notationRef.current);
           }
-          drawOverlay(ctx, activeNote, notationRef.current);
+          drawLeftPanel(ctx, activeNote, notationRef.current);
         }
       }
     }
@@ -318,22 +319,28 @@ export default function GameCanvas() {
           bpm: data.bpm,
           ticksPerBeat: data.ticksPerBeat,
           durationSec: data.durationSec,
-          notes: data.notes.map((n: Record<string, unknown>, i: number) => ({
-            id: `db-${i}`,
-            midiNumber: n.midiNumber,
-            noteName: n.noteName,
-            string: n.string,
-            finger: n.finger,
-            lane: n.lane,
-            startTimeSec: n.startTimeSec,
-            durationSec: n.durationSec,
-            y: 0,
-            tailHeight: 0,
-            state: "upcoming" as const,
-            staffPosition: n.staffPosition,
-            accidental: n.accidental,
-            position: n.position,
-          })),
+          notes: data.notes.map((n: Record<string, unknown>, i: number) => {
+            // Recover missing violin data for songs saved before these fields existed
+            const vNote = (n.position == null || n.staffPosition == null)
+              ? findNoteByMidi(Number(n.midiNumber), n.string as string)
+              : undefined;
+            return {
+              id: `db-${i}`,
+              midiNumber: n.midiNumber,
+              noteName: n.noteName,
+              string: n.string,
+              finger: n.finger,
+              lane: n.lane,
+              startTimeSec: n.startTimeSec,
+              durationSec: n.durationSec,
+              y: 0,
+              tailHeight: 0,
+              state: "upcoming" as const,
+              staffPosition: n.staffPosition ?? vNote?.staffPosition ?? 0,
+              accidental: (n.accidental as "sharp" | "flat" | undefined) ?? vNote?.accidental,
+              position: n.position != null ? Number(n.position) : vNote?.position,
+            };
+          }),
         };
         loadSong(song);
       } catch (err) {
@@ -367,7 +374,7 @@ export default function GameCanvas() {
           ref={canvasRef}
           width={CANVAS_WIDTH}
           height={CANVAS_HEIGHT}
-          className="w-full max-w-4xl rounded-lg border border-border"
+          className="w-full rounded-lg border border-border"
         />
       ) : (
         currentSong && (

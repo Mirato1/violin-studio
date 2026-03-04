@@ -1,9 +1,10 @@
-export const CANVAS_WIDTH = 900;
-export const CANVAS_HEIGHT = 560;
+export const CANVAS_WIDTH = 1280;
+export const CANVAS_HEIGHT = 720;
+export const LEFT_PANEL_WIDTH = 240;
 export const HIT_LINE_Y = CANVAS_HEIGHT * 0.85;
-export const OVERLAY_HEIGHT = 110;
+export const OVERLAY_HEIGHT = 0;
 export const PROGRESS_BAR_HEIGHT = 0;
-export const NOTE_RADIUS = 24;
+export const NOTE_RADIUS = 28;
 export const LANE_COUNT = 4;
-export const LANE_WIDTH = CANVAS_WIDTH / LANE_COUNT;
+export const LANE_WIDTH = (CANVAS_WIDTH - LEFT_PANEL_WIDTH) / LANE_COUNT;
 export const BASE_PIXELS_PER_SECOND = 220;

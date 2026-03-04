@@ -67,18 +67,34 @@ export function getNotesByString(s: string) {
 }
 
 /** Find the best violin note for a MIDI number, optionally preferring a string.
- *  When multiple matches exist, prefers 1st position over higher positions. */
+ *  Always prefers 1st position over higher positions (position shifts are harder
+ *  than string crossings for beginners). Uses preferString only as a tiebreaker
+ *  among same-position matches. */
 export function findNoteByMidi(
   midiNumber: number,
   preferString?: string
 ): ViolinNote | undefined {
   const matches = VIOLIN_NOTES.filter((n) => n.midiNumber === midiNumber);
   if (matches.length === 0) return undefined;
-  if (preferString) {
-    const preferred = matches.find((n) => n.string === preferString);
-    if (preferred) return preferred;
+  if (matches.length === 1) return matches[0];
+
+  // Separate 1st position vs higher position entries
+  const firstPos = matches.filter((n) => !n.position || n.position === 1);
+
+  if (firstPos.length > 0) {
+    // Among 1st-position matches, prefer the same string
+    if (preferString) {
+      const onPref = firstPos.find((n) => n.string === preferString);
+      if (onPref) return onPref;
+    }
+    // Otherwise pick the lowest finger (open string > finger 4)
+    return firstPos.sort((a, b) => a.finger - b.finger)[0];
   }
-  // Prefer 1st position (no position field or position=1) over higher positions
-  const firstPos = matches.find((n) => !n.position || n.position === 1);
-  return firstPos ?? matches[0];
+
+  // No 1st-position option — fall back to higher positions
+  if (preferString) {
+    const onPref = matches.find((n) => n.string === preferString);
+    if (onPref) return onPref;
+  }
+  return matches[0];
 }

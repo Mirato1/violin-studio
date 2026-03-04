@@ -10,7 +10,6 @@ import {
   type PositionNote,
   getPositionNotes,
   getOpenStringNote,
-  POSITION_INFO,
 } from "@/lib/positions";
 
 interface FingerboardChartProps {
@@ -90,7 +89,7 @@ export default function FingerboardChart({
       {/* String headers */}
       <div
         className="grid items-end gap-0 border-b border-amber-200/15 bg-card py-3"
-        style={{ gridTemplateColumns: "3.5rem repeat(4, 1fr) 2.5rem" }}
+        style={{ gridTemplateColumns: "3.5rem repeat(4, 1fr)" }}
       >
         <div />
         {VIOLIN_STRINGS.map((s) => (
@@ -100,7 +99,6 @@ export default function FingerboardChart({
             </span>
           </div>
         ))}
-        <div />
       </div>
 
       {/* Nut */}
@@ -113,7 +111,7 @@ export default function FingerboardChart({
         {/* Vertical string lines (behind content) */}
         <div
           className="pointer-events-none absolute inset-0 grid"
-          style={{ gridTemplateColumns: "3.5rem repeat(4, 1fr) 2.5rem" }}
+          style={{ gridTemplateColumns: "3.5rem repeat(4, 1fr)" }}
         >
           <div />
           {VIOLIN_STRINGS.map((s) => (
@@ -128,26 +126,6 @@ export default function FingerboardChart({
               />
             </div>
           ))}
-        </div>
-
-        {/* Position zone bracket on the right */}
-        <div className="pointer-events-none absolute right-0 top-0 bottom-0 z-20 flex w-10 flex-col items-center justify-center">
-          <div className="flex h-[85%] flex-col items-center">
-            {/* Top cap */}
-            <div className="h-2 w-3 border-t border-r border-amber-200/30 rounded-tr-sm" />
-            {/* Vertical line */}
-            <div className="flex-1 w-px bg-amber-200/30" />
-            {/* Label */}
-            <div
-              className="my-1 -rotate-90 whitespace-nowrap text-[9px] font-bold tracking-wider text-amber-200/50"
-            >
-              {POSITION_INFO[selectedPosition].label.toUpperCase()}
-            </div>
-            {/* Vertical line */}
-            <div className="flex-1 w-px bg-amber-200/30" />
-            {/* Bottom cap */}
-            <div className="h-2 w-3 border-b border-r border-amber-200/30 rounded-br-sm" />
-          </div>
         </div>
 
         {/* Content */}

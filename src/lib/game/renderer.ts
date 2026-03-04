@@ -5,7 +5,7 @@ import {
   CANVAS_WIDTH,
   CANVAS_HEIGHT,
   HIT_LINE_Y,
-  OVERLAY_HEIGHT,
+  LEFT_PANEL_WIDTH,
   NOTE_RADIUS,
   LANE_COUNT,
   LANE_WIDTH,
@@ -14,61 +14,77 @@ import {
 const STRINGS_ORDER: ViolinString[] = ["G", "D", "A", "E"];
 
 export function drawBackground(ctx: CanvasRenderingContext2D, notation: NotationMode = "abc") {
-  // Dark background
+  // Full dark background
   ctx.fillStyle = "#120e08";
   ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+  // Left panel background (slightly different shade)
+  ctx.fillStyle = "rgba(12, 10, 6, 0.95)";
+  ctx.fillRect(0, 0, LEFT_PANEL_WIDTH, CANVAS_HEIGHT);
 
   // Lane backgrounds with subtle gradient
   for (let i = 0; i < LANE_COUNT; i++) {
     const s = STRINGS_ORDER[i];
     const color = STRING_COLORS[s];
-    const laneX = i * LANE_WIDTH;
-    const laneTop = OVERLAY_HEIGHT;
-    const laneBottom = CANVAS_HEIGHT;
+    const laneX = LEFT_PANEL_WIDTH + i * LANE_WIDTH;
 
-    const grad = ctx.createLinearGradient(laneX, laneTop, laneX, laneBottom);
+    const grad = ctx.createLinearGradient(laneX, 0, laneX, CANVAS_HEIGHT);
     grad.addColorStop(0, color.bg);
     grad.addColorStop(0.7, color.bg);
     grad.addColorStop(1, "rgba(0,0,0,0)");
     ctx.fillStyle = grad;
-    ctx.fillRect(laneX, laneTop, LANE_WIDTH, laneBottom - laneTop);
+    ctx.fillRect(laneX, 0, LANE_WIDTH, CANVAS_HEIGHT);
   }
 
   // Lane dividers
   ctx.strokeStyle = "rgba(210,180,120,0.08)";
   ctx.lineWidth = 1;
   for (let i = 1; i < LANE_COUNT; i++) {
+    const x = LEFT_PANEL_WIDTH + i * LANE_WIDTH;
     ctx.beginPath();
-    ctx.moveTo(i * LANE_WIDTH, OVERLAY_HEIGHT);
-    ctx.lineTo(i * LANE_WIDTH, CANVAS_HEIGHT);
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, CANVAS_HEIGHT);
     ctx.stroke();
   }
 
+  // Separator between left panel and lanes
+  const sepGrad = ctx.createLinearGradient(LEFT_PANEL_WIDTH, 0, LEFT_PANEL_WIDTH, CANVAS_HEIGHT);
+  sepGrad.addColorStop(0, "rgba(210,180,120,0)");
+  sepGrad.addColorStop(0.15, "rgba(210,180,120,0.15)");
+  sepGrad.addColorStop(0.85, "rgba(210,180,120,0.15)");
+  sepGrad.addColorStop(1, "rgba(210,180,120,0)");
+  ctx.strokeStyle = sepGrad;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(LEFT_PANEL_WIDTH, 0);
+  ctx.lineTo(LEFT_PANEL_WIDTH, CANVAS_HEIGHT);
+  ctx.stroke();
+
   // Lane labels at top of play area
-  ctx.font = "bold 12px sans-serif";
+  ctx.font = "bold 13px sans-serif";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   for (let i = 0; i < LANE_COUNT; i++) {
     const s = STRINGS_ORDER[i];
     ctx.fillStyle = STRING_COLORS[s].faded;
-    ctx.fillText(stringToNotation(s, notation), i * LANE_WIDTH + LANE_WIDTH / 2, OVERLAY_HEIGHT + 15);
+    ctx.fillText(stringToNotation(s, notation), LEFT_PANEL_WIDTH + i * LANE_WIDTH + LANE_WIDTH / 2, 18);
   }
 
-  // Hit line with glow
+  // Hit line with glow (only across lanes)
   ctx.save();
   ctx.shadowColor = "rgba(210,180,120,0.5)";
   ctx.shadowBlur = 10;
   ctx.strokeStyle = "rgba(210,180,120,0.5)";
   ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.moveTo(0, HIT_LINE_Y);
+  ctx.moveTo(LEFT_PANEL_WIDTH, HIT_LINE_Y);
   ctx.lineTo(CANVAS_WIDTH, HIT_LINE_Y);
   ctx.stroke();
   ctx.restore();
 
   // Target circles at hit line
   for (let i = 0; i < LANE_COUNT; i++) {
-    const cx = i * LANE_WIDTH + LANE_WIDTH / 2;
+    const cx = LEFT_PANEL_WIDTH + i * LANE_WIDTH + LANE_WIDTH / 2;
     const s = STRINGS_ORDER[i];
     const color = STRING_COLORS[s];
 
@@ -80,7 +96,7 @@ export function drawBackground(ctx: CanvasRenderingContext2D, notation: Notation
     ctx.stroke();
 
     // Inner subtle fill
-    ctx.fillStyle = `${color.bg}`;
+    ctx.fillStyle = color.bg;
     ctx.beginPath();
     ctx.arc(cx, HIT_LINE_Y, NOTE_RADIUS + 4, 0, Math.PI * 2);
     ctx.fill();
@@ -93,13 +109,12 @@ export function drawNote(
   showFingers: boolean,
   notation: NotationMode = "abc"
 ) {
-  const x = note.lane * LANE_WIDTH + LANE_WIDTH / 2;
+  const x = LEFT_PANEL_WIDTH + note.lane * LANE_WIDTH + LANE_WIDTH / 2;
   const y = note.y;
   const s = note.string;
   const color = STRING_COLORS[s];
 
   // Skip if completely off screen
-  // Tail extends upward from y (to y - tailHeight), circle extends down to y + NOTE_RADIUS
   if (y + NOTE_RADIUS < 0 || y - note.tailHeight > CANVAS_HEIGHT + NOTE_RADIUS) return;
 
   ctx.save();
@@ -127,7 +142,6 @@ export function drawNote(
     const tailWidth = NOTE_RADIUS * 1.2;
     const tailTop = y - note.tailHeight;
 
-    // Gradient tail: opaque near note, transparent at top
     const tailGrad = ctx.createLinearGradient(x, tailTop, x, y);
     tailGrad.addColorStop(0, "rgba(0,0,0,0)");
     tailGrad.addColorStop(0.3, fillColor);
@@ -169,9 +183,8 @@ export function drawNote(
   ctx.shadowBlur = 0;
   ctx.shadowColor = "transparent";
   if (note.state !== "passed") {
-    // Text shadow for legibility
     ctx.fillStyle = "rgba(0,0,0,0.5)";
-    ctx.font = "bold 16px sans-serif";
+    ctx.font = "bold 18px sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     const label = showFingers ? String(note.finger) : toNotation(note.noteName.replace(/\d/, ""), notation);
@@ -180,7 +193,7 @@ export function drawNote(
     ctx.fillText(label, x, y);
   } else {
     ctx.fillStyle = "rgba(230,215,180,0.4)";
-    ctx.font = "bold 14px sans-serif";
+    ctx.font = "bold 16px sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     const label = showFingers ? String(note.finger) : toNotation(note.noteName.replace(/\d/, ""), notation);
@@ -190,174 +203,94 @@ export function drawNote(
   ctx.restore();
 }
 
-/** Draw mini staff notation for the active note */
-function drawStaffNotation(ctx: CanvasRenderingContext2D, note: GameNote) {
-  const staffLeft = 15;
-  const staffRight = 260;
-  const lineSpacing = 10;
-  const staffTop = 30;
-  const staffLines = [0, 1, 2, 3, 4].map((i) => staffTop + i * lineSpacing);
-
-  // Staff lines
-  ctx.strokeStyle = "rgba(230,215,180,0.3)";
-  ctx.lineWidth = 1;
-  for (const ly of staffLines) {
-    ctx.beginPath();
-    ctx.moveTo(staffLeft, ly);
-    ctx.lineTo(staffRight, ly);
-    ctx.stroke();
-  }
-
-  // Treble clef glyph
-  ctx.fillStyle = "rgba(255,255,255,0.45)";
-  ctx.font = "38px serif";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText("\u{1D11E}", staffLeft + 25, staffTop + lineSpacing * 2 + 1);
-
-  // Note position on staff
-  const staffPosition = note.staffPosition ?? 0;
-  // staffPosition mapping: C4=0 is one ledger line below the staff
-  // Line 1 (bottom) = E4 = staffPosition 2
-  // noteY = staffTop + (4 * lineSpacing) - ((staffPosition - 2) * lineSpacing / 2)
-  //       = bottom line - (staffPosition - 2) * half a line spacing
-  const noteY = staffTop + 4 * lineSpacing - ((staffPosition - 2) * lineSpacing) / 2;
-  const noteX = (staffLeft + staffRight) / 2 + 20;
-  const noteRx = 8;
-  const noteRy = 5.5;
-
-  // Ledger lines below staff (staffPosition < 2, i.e. below E4)
-  ctx.strokeStyle = "rgba(230,215,180,0.3)";
-  ctx.lineWidth = 1;
-  if (staffPosition < 2) {
-    for (let pos = 0; pos >= staffPosition; pos -= 2) {
-      const ly = staffTop + 4 * lineSpacing - ((pos - 2) * lineSpacing) / 2;
-      ctx.beginPath();
-      ctx.moveTo(noteX - 14, ly);
-      ctx.lineTo(noteX + 14, ly);
-      ctx.stroke();
-    }
-  }
-  // Ledger lines above staff (staffPosition > 10, i.e. above F5)
-  if (staffPosition > 10) {
-    for (let pos = 12; pos <= staffPosition; pos += 2) {
-      const ly = staffTop + 4 * lineSpacing - ((pos - 2) * lineSpacing) / 2;
-      ctx.beginPath();
-      ctx.moveTo(noteX - 14, ly);
-      ctx.lineTo(noteX + 14, ly);
-      ctx.stroke();
-    }
-  }
-
-  // Accidental
-  if (note.accidental === "sharp") {
-    ctx.fillStyle = "rgba(255,255,255,0.8)";
-    ctx.font = "bold 16px serif";
-    ctx.textAlign = "right";
-    ctx.textBaseline = "middle";
-    ctx.fillText("#", noteX - noteRx - 4, noteY);
-  } else if (note.accidental === "flat") {
-    ctx.fillStyle = "rgba(255,255,255,0.8)";
-    ctx.font = "bold 16px serif";
-    ctx.textAlign = "right";
-    ctx.textBaseline = "middle";
-    ctx.fillText("b", noteX - noteRx - 4, noteY);
-  }
-
-  // Note head (colored ellipse)
-  const color = STRING_COLORS[note.string];
-  ctx.fillStyle = color.fill;
-  ctx.beginPath();
-  ctx.ellipse(noteX, noteY, noteRx, noteRy, -0.2, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Stem
-  ctx.strokeStyle = color.fill;
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  if (staffPosition >= 6) {
-    // Stem down
-    ctx.moveTo(noteX - noteRx + 1, noteY);
-    ctx.lineTo(noteX - noteRx + 1, noteY + 30);
-  } else {
-    // Stem up
-    ctx.moveTo(noteX + noteRx - 1, noteY);
-    ctx.lineTo(noteX + noteRx - 1, noteY - 30);
-  }
-  ctx.stroke();
-}
+/* ─── Left Panel: Note info + Vertical Fingerboard ─── */
 
 const OPEN_MIDI: Record<string, number> = { G: 55, D: 62, A: 69, E: 76 };
-const MAX_SEMITONES = 14; // covers up to ~7th position
+const MAX_SEMITONES = 14;
+const POS_NAMES: Record<number, string> = { 1: "1st", 2: "2nd", 3: "3rd", 4: "4th", 5: "5th", 6: "6th", 7: "7th" };
 
-/** Draw a horizontal fingerboard diagram showing the finger placement */
-function drawFingerboard(ctx: CanvasRenderingContext2D, note: GameNote, notation: NotationMode) {
-  const fbLeft = 540;
-  const fbTop = 12;
-  const fbWidth = 330;
-  const fbHeight = 76;
+/** Draw a vertical fingerboard diagram inside the left panel */
+function drawVerticalFingerboard(ctx: CanvasRenderingContext2D, note: GameNote, notation: NotationMode) {
+  const fbLeft = 30;
+  const fbTop = 115;
+  const fbWidth = 180;
+  const fbHeight = 540;
   const fbRight = fbLeft + fbWidth;
   const fbBottom = fbTop + fbHeight;
-  const nutWidth = 4;
-  const playableLeft = fbLeft + nutWidth + 8;
-  const playableRight = fbRight - 8;
-  const playableWidth = playableRight - playableLeft;
+  const nutHeight = 6;
+  const playableTop = fbTop + nutHeight + 10;
+  const playableBottom = fbBottom - 10;
+  const playableHeight = playableBottom - playableTop;
 
-  // String Y positions (G=top to E=bottom)
-  const stringPad = 12;
-  const stringSpacing = (fbHeight - 2 * stringPad) / 3;
-  const stringYs = STRINGS_ORDER.map((_, i) => fbTop + stringPad + i * stringSpacing);
+  // String X positions (G=left to E=right)
+  const stringPad = 24;
+  const stringSpacing = (fbWidth - 2 * stringPad) / 3;
+  const stringXs = STRINGS_ORDER.map((_, i) => fbLeft + stringPad + i * stringSpacing);
 
   ctx.save();
 
   // Fingerboard background
   ctx.fillStyle = "rgba(50, 38, 18, 0.6)";
   ctx.beginPath();
-  ctx.roundRect(fbLeft, fbTop, fbWidth, fbHeight, 5);
+  ctx.roundRect(fbLeft, fbTop, fbWidth, fbHeight, 8);
   ctx.fill();
 
-  // Nut
+  // Nut (horizontal bar at top)
   ctx.fillStyle = "rgba(200, 185, 150, 0.5)";
   ctx.beginPath();
-  ctx.roundRect(fbLeft + 2, fbTop + 4, nutWidth, fbHeight - 8, 1);
+  ctx.roundRect(fbLeft + 6, fbTop + 2, fbWidth - 12, nutHeight, 2);
   ctx.fill();
 
-  // Semi-tone markers (subtle vertical lines)
+  // Position zone backgrounds (subtle horizontal bands)
+  const zones = [
+    { startSemi: 0, endSemi: 4.5 },   // 1st position
+    { startSemi: 4.5, endSemi: 8.5 },  // 3rd position
+    { startSemi: 8.5, endSemi: 12.5 }, // 5th position
+  ];
+  for (let i = 0; i < zones.length; i++) {
+    if (i % 2 !== 0) continue;
+    const y1 = playableTop + (zones[i].startSemi / MAX_SEMITONES) * playableHeight;
+    const y2 = playableTop + (zones[i].endSemi / MAX_SEMITONES) * playableHeight;
+    ctx.fillStyle = "rgba(230, 215, 180, 0.03)";
+    ctx.fillRect(fbLeft + 4, y1, fbWidth - 8, y2 - y1);
+  }
+
+  // Semitone markers (horizontal lines)
   ctx.strokeStyle = "rgba(200, 185, 150, 0.06)";
   ctx.lineWidth = 1;
   for (let s = 1; s <= MAX_SEMITONES; s++) {
-    const x = playableLeft + (s / MAX_SEMITONES) * playableWidth;
+    const y = playableTop + (s / MAX_SEMITONES) * playableHeight;
     ctx.beginPath();
-    ctx.moveTo(x, fbTop + 6);
-    ctx.lineTo(x, fbBottom - 6);
+    ctx.moveTo(fbLeft + 8, y);
+    ctx.lineTo(fbRight - 8, y);
     ctx.stroke();
   }
 
-  // Strings (horizontal lines with varying thickness)
+  // Strings (vertical lines with varying thickness)
   for (let i = 0; i < 4; i++) {
-    const sy = stringYs[i];
+    const sx = stringXs[i];
     const s = STRINGS_ORDER[i];
     const color = STRING_COLORS[s];
-    const thickness = [2.5, 2, 1.5, 1][i];
+    const thickness = [3, 2.5, 1.8, 1.2][i];
 
     ctx.strokeStyle = color.faded;
-    ctx.globalAlpha = 0.4;
+    ctx.globalAlpha = 0.45;
     ctx.lineWidth = thickness;
     ctx.beginPath();
-    ctx.moveTo(fbLeft + nutWidth + 2, sy);
-    ctx.lineTo(fbRight - 4, sy);
+    ctx.moveTo(sx, fbTop + nutHeight + 2);
+    ctx.lineTo(sx, fbBottom - 8);
     ctx.stroke();
     ctx.globalAlpha = 1;
   }
 
-  // String labels (left of nut)
-  ctx.font = "bold 9px sans-serif";
-  ctx.textAlign = "right";
-  ctx.textBaseline = "middle";
+  // String labels (above nut)
+  ctx.font = "bold 12px sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "bottom";
   for (let i = 0; i < 4; i++) {
     const s = STRINGS_ORDER[i];
     ctx.fillStyle = STRING_COLORS[s].faded;
-    ctx.fillText(stringToNotation(s, notation), fbLeft - 5, stringYs[i]);
+    ctx.fillText(stringToNotation(s, notation), stringXs[i], fbTop - 5);
   }
 
   // Finger placement
@@ -365,7 +298,7 @@ function drawFingerboard(ctx: CanvasRenderingContext2D, note: GameNote, notation
   const strIdx = STRINGS_ORDER.indexOf(note.string as ViolinString);
 
   if (strIdx >= 0) {
-    const dotY = stringYs[strIdx];
+    const dotX = stringXs[strIdx];
     const color = STRING_COLORS[note.string as ViolinString];
 
     if (semiAbove === 0) {
@@ -373,39 +306,39 @@ function drawFingerboard(ctx: CanvasRenderingContext2D, note: GameNote, notation
       ctx.fillStyle = color.fill;
       ctx.globalAlpha = 0.7;
       ctx.beginPath();
-      ctx.arc(fbLeft + nutWidth / 2 + 2, dotY, 7, 0, Math.PI * 2);
+      ctx.arc(dotX, fbTop + nutHeight / 2 + 2, 12, 0, Math.PI * 2);
       ctx.fill();
       ctx.globalAlpha = 1;
 
       ctx.fillStyle = "#f5e6c8";
-      ctx.font = "bold 10px sans-serif";
+      ctx.font = "bold 14px sans-serif";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.fillText("O", fbLeft + nutWidth / 2 + 2, dotY);
+      ctx.fillText("O", dotX, fbTop + nutHeight / 2 + 2);
     } else {
       const clampedSemi = Math.min(semiAbove, MAX_SEMITONES);
-      const dotX = playableLeft + (clampedSemi / MAX_SEMITONES) * playableWidth;
+      const dotY = playableTop + (clampedSemi / MAX_SEMITONES) * playableHeight;
 
       // Glow
       ctx.shadowColor = color.glow;
-      ctx.shadowBlur = 12;
+      ctx.shadowBlur = 18;
       ctx.fillStyle = color.fill;
       ctx.beginPath();
-      ctx.arc(dotX, dotY, 10, 0, Math.PI * 2);
+      ctx.arc(dotX, dotY, 14, 0, Math.PI * 2);
       ctx.fill();
       ctx.shadowBlur = 0;
       ctx.shadowColor = "transparent";
 
       // Border
       ctx.strokeStyle = "rgba(230,215,180,0.4)";
-      ctx.lineWidth = 1;
+      ctx.lineWidth = 1.5;
       ctx.beginPath();
-      ctx.arc(dotX, dotY, 10, 0, Math.PI * 2);
+      ctx.arc(dotX, dotY, 14, 0, Math.PI * 2);
       ctx.stroke();
 
       // Finger number
       ctx.fillStyle = "#f5e6c8";
-      ctx.font = "bold 12px sans-serif";
+      ctx.font = "bold 15px sans-serif";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.fillText(String(note.finger), dotX, dotY);
@@ -414,95 +347,59 @@ function drawFingerboard(ctx: CanvasRenderingContext2D, note: GameNote, notation
 
   // Position label below fingerboard
   const pos = note.position ?? 1;
-  const posNames: Record<number, string> = { 1: "1st", 2: "2nd", 3: "3rd", 4: "4th", 5: "5th", 6: "6th", 7: "7th" };
-  const posLabel = posNames[pos] ?? `${pos}th`;
+  const posLabel = POS_NAMES[pos] ?? `${pos}th`;
   ctx.fillStyle = pos > 1 ? "rgba(230,215,180,0.6)" : "rgba(230,215,180,0.3)";
-  ctx.font = "10px sans-serif";
+  ctx.font = "12px sans-serif";
   ctx.textAlign = "center";
   ctx.textBaseline = "top";
-  ctx.fillText(`${posLabel} pos`, fbLeft + fbWidth / 2, fbBottom + 3);
+  ctx.fillText(`${posLabel} pos`, fbLeft + fbWidth / 2, fbBottom + 8);
 
   ctx.restore();
 }
 
-export function drawOverlay(
+export function drawLeftPanel(
   ctx: CanvasRenderingContext2D,
   activeNote: GameNote | null,
   notation: NotationMode = "abc"
 ) {
-  // Semi-transparent overlay bar
-  const overlayGrad = ctx.createLinearGradient(0, 0, 0, OVERLAY_HEIGHT);
-  overlayGrad.addColorStop(0, "rgba(18,14,8,0.95)");
-  overlayGrad.addColorStop(1, "rgba(18,14,8,0.85)");
-  ctx.fillStyle = overlayGrad;
-  ctx.fillRect(0, 0, CANVAS_WIDTH, OVERLAY_HEIGHT);
-
-  // Bottom border
-  ctx.strokeStyle = "rgba(210,180,120,0.1)";
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(0, OVERLAY_HEIGHT);
-  ctx.lineTo(CANVAS_WIDTH, OVERLAY_HEIGHT);
-  ctx.stroke();
-
   if (activeNote) {
-    // Left side: mini staff notation
-    ctx.save();
-    drawStaffNotation(ctx, activeNote);
-    ctx.restore();
-
-    // Vertical separator
-    ctx.strokeStyle = "rgba(210,180,120,0.1)";
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(280, 10);
-    ctx.lineTo(280, OVERLAY_HEIGHT - 10);
-    ctx.stroke();
-
-    // Right side: text info
     const color = STRING_COLORS[activeNote.string];
-    const infoX = 290;
+    const cx = LEFT_PANEL_WIDTH / 2;
 
-    // Note name (large)
+    // Note name (large, centered)
     ctx.fillStyle = color.fill;
-    ctx.font = "bold 28px sans-serif";
-    ctx.textAlign = "left";
+    ctx.font = "bold 40px sans-serif";
+    ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText(toNotationFull(activeNote.noteName, notation), infoX, 38);
+    ctx.fillText(toNotationFull(activeNote.noteName, notation), cx, 35);
 
-    // Second row: String, Finger, Position
-    ctx.font = "14px sans-serif";
-    ctx.textBaseline = "middle";
-    const row2Y = 72;
-
-    // String badge
-    ctx.fillStyle = color.fill;
-    ctx.fillText(`${stringToNotation(activeNote.string, notation)} String`, infoX, row2Y);
-
-    // Finger
+    // String + Finger
     const fingerText = activeNote.finger === 0 ? "Open" : `Finger ${activeNote.finger}`;
+    ctx.font = "14px sans-serif";
+    ctx.fillStyle = color.fill;
+    ctx.fillText(
+      `${stringToNotation(activeNote.string, notation)} String`,
+      cx, 65
+    );
     ctx.fillStyle = "rgba(230,215,180,0.7)";
-    ctx.fillText(`\u00B7  ${fingerText}`, infoX + 85, row2Y);
+    ctx.fillText(`\u00B7  ${fingerText}`, cx, 82);
 
-    // Separator before fingerboard
-    ctx.strokeStyle = "rgba(210,180,120,0.1)";
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(525, 10);
-    ctx.lineTo(525, OVERLAY_HEIGHT - 10);
-    ctx.stroke();
+    // Position
+    const pos = activeNote.position ?? 1;
+    const posLabel = POS_NAMES[pos] ?? `${pos}th`;
+    ctx.fillStyle = pos > 1 ? "rgba(230,215,180,0.6)" : "rgba(230,215,180,0.35)";
+    ctx.font = "12px sans-serif";
+    ctx.fillText(`${posLabel} pos`, cx, 99);
 
-    // Fingerboard diagram
-    ctx.save();
-    drawFingerboard(ctx, activeNote, notation);
-    ctx.restore();
+    // Vertical fingerboard
+    drawVerticalFingerboard(ctx, activeNote, notation);
   } else {
     // Empty state
     ctx.fillStyle = "rgba(230,215,180,0.3)";
     ctx.font = "14px sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText("Press Play to start", CANVAS_WIDTH / 2, OVERLAY_HEIGHT / 2);
+    ctx.fillText("Press Play", LEFT_PANEL_WIDTH / 2, CANVAS_HEIGHT / 2 - 10);
+    ctx.fillText("to start", LEFT_PANEL_WIDTH / 2, CANVAS_HEIGHT / 2 + 12);
   }
 }
-
