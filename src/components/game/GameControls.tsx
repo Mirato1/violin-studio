@@ -2,7 +2,6 @@
 
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
-import { Toggle } from "@/components/ui/toggle";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import { SPEED_OPTIONS } from "@/types/game";
 import {
@@ -120,33 +119,31 @@ export default function GameControls({
         <div className="flex items-center gap-1">
           <Tooltip>
             <TooltipTrigger asChild>
-              <Toggle
-                pressed={showFingers}
-                onPressedChange={onFingersToggle}
-                size="sm"
-                variant="outline"
+              <Button
+                onClick={onFingersToggle}
+                variant={showFingers ? "default" : "ghost"}
+                size="icon-sm"
               >
-                {showFingers ? <Hand className="size-4" /> : <Music className="size-4" />}
-              </Toggle>
+                <Hand className="size-4" />
+              </Button>
             </TooltipTrigger>
             <TooltipContent side="top">
-              {showFingers ? "Showing fingers" : "Showing notes"}
+              {showFingers ? "Fingers on (click for note names)" : "Note names on (click for fingers)"}
             </TooltipContent>
           </Tooltip>
 
           <Tooltip>
             <TooltipTrigger asChild>
-              <Toggle
-                pressed={viewMode === "score"}
-                onPressedChange={onViewModeToggle}
-                size="sm"
-                variant="outline"
+              <Button
+                onClick={onViewModeToggle}
+                variant={viewMode === "score" ? "default" : "ghost"}
+                size="icon-sm"
               >
                 {viewMode === "score" ? <FileMusic className="size-4" /> : <GalleryVerticalEnd className="size-4" />}
-              </Toggle>
+              </Button>
             </TooltipTrigger>
             <TooltipContent side="top">
-              {viewMode === "score" ? "Score view" : "Play along view"}
+              {viewMode === "score" ? "Score view (click for play-along)" : "Play-along view (click for score)"}
             </TooltipContent>
           </Tooltip>
         </div>

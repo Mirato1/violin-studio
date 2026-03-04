@@ -82,25 +82,6 @@ export function drawBackground(ctx: CanvasRenderingContext2D, notation: Notation
   ctx.stroke();
   ctx.restore();
 
-  // Target circles at hit line
-  for (let i = 0; i < LANE_COUNT; i++) {
-    const cx = LEFT_PANEL_WIDTH + i * LANE_WIDTH + LANE_WIDTH / 2;
-    const s = STRINGS_ORDER[i];
-    const color = STRING_COLORS[s];
-
-    // Outer ring
-    ctx.strokeStyle = color.faded;
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(cx, HIT_LINE_Y, NOTE_RADIUS + 5, 0, Math.PI * 2);
-    ctx.stroke();
-
-    // Inner subtle fill
-    ctx.fillStyle = color.bg;
-    ctx.beginPath();
-    ctx.arc(cx, HIT_LINE_Y, NOTE_RADIUS + 4, 0, Math.PI * 2);
-    ctx.fill();
-  }
 }
 
 export function drawNote(
@@ -137,15 +118,11 @@ export function drawNote(
   let alpha = 1;
   if (note.state === "active") {
     fillColor = color.glow;
-    ctx.shadowColor = color.glow;
-    ctx.shadowBlur = 20;
   } else if (note.state === "passed") {
     fillColor = color.faded;
     alpha = 0.35;
   } else {
     fillColor = color.fill;
-    ctx.shadowColor = color.fill;
-    ctx.shadowBlur = 6;
   }
 
   ctx.globalAlpha = noteAlpha * alpha;
@@ -530,12 +507,19 @@ export function drawEdgeFades(ctx: CanvasRenderingContext2D) {
   ctx.fillStyle = topGrad;
   ctx.fillRect(lanesX, 0, lanesW, 60);
 
-  // Bottom fade — hides passed notes exiting below hit line
-  const fadeStart = HIT_LINE_Y + 10;
-  const fadeEnd = HIT_LINE_Y + 65;
-  const botGrad = ctx.createLinearGradient(0, fadeStart, 0, fadeEnd);
-  botGrad.addColorStop(0, "rgba(18,14,8,0)");
-  botGrad.addColorStop(1, BG);
-  ctx.fillStyle = botGrad;
-  ctx.fillRect(lanesX, fadeStart, lanesW, fadeEnd - fadeStart);
+  // Cover everything below the hit line — hides passed notes and bottom half of active note circle
+  ctx.fillStyle = BG;
+  ctx.fillRect(lanesX, HIT_LINE_Y + 1, lanesW, CANVAS_HEIGHT - HIT_LINE_Y - 1);
+
+  // Redraw target rings on top of the cover so they're always visible
+  for (let i = 0; i < LANE_COUNT; i++) {
+    const cx = LEFT_PANEL_WIDTH + i * LANE_WIDTH + LANE_WIDTH / 2;
+    const s = STRINGS_ORDER[i];
+    const color = STRING_COLORS[s];
+    ctx.strokeStyle = color.faded;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(cx, HIT_LINE_Y, NOTE_RADIUS + 5, 0, Math.PI * 2);
+    ctx.stroke();
+  }
 }

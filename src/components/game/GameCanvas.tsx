@@ -168,6 +168,19 @@ export default function GameCanvas() {
     }
   }, [status, audio]);
 
+  // Global spacebar → play/pause (ignores when focused on inputs)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.code !== "Space") return;
+      const target = e.target as HTMLElement;
+      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT") return;
+      e.preventDefault();
+      handlePlayPause();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [handlePlayPause]);
+
   // Restart
   const handleRestart = useCallback(() => {
     audio.stop();
@@ -206,7 +219,7 @@ export default function GameCanvas() {
     [audio]
   );
 
-  // MIDI file upload — returns the DB _id if saved successfully
+  // MIDI file upload — saves all tracks with notes, returns the best-track _id
   const handleFileUpload = useCallback(
     async (file: File): Promise<string | undefined> => {
       setError(null);
@@ -215,7 +228,6 @@ export default function GameCanvas() {
         const midi = parseMidi(buffer);
         const name = file.name.replace(/\.(mid|midi)$/i, "");
 
-        // Store parsed MIDI for re-mapping when user changes track
         parsedMidiRef.current = midi;
         midiTitleRef.current = name;
         const tracks = getTrackInfo(midi);
@@ -224,53 +236,61 @@ export default function GameCanvas() {
         const bestIdx = bestTrack ? bestTrack.index : 0;
         setSelectedTrackIndex(bestIdx);
 
-        const song = mapMidiToViolin(midi, name, bestIdx);
+        // Filter tracks that have playable notes
+        const tracksWithNotes = tracks.filter((t) => mapMidiToViolin(midi, name, t.index).notes.length > 0);
 
-        if (song.notes.length === 0) {
+        if (tracksWithNotes.length === 0) {
           setError("No playable violin notes found in this MIDI file.");
           return;
         }
 
-        loadSong(song);
+        // Load the best track immediately for playback
+        const bestSong = mapMidiToViolin(midi, name, bestIdx);
+        loadSong(bestSong);
 
-        // Save to DB and get the new _id; fallback to localStorage if unavailable
-        try {
-          const res = await fetch("/api/songs", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              title: song.title,
-              bpm: song.bpm,
-              ticksPerBeat: song.ticksPerBeat,
-              durationSec: song.durationSec,
-              notes: song.notes.map((n) => ({
-                midiNumber: n.midiNumber,
-                noteName: n.noteName,
-                string: n.string,
-                finger: n.finger,
-                lane: n.lane,
-                startTimeSec: n.startTimeSec,
-                durationSec: n.durationSec,
-                staffPosition: n.staffPosition,
-                accidental: n.accidental,
-                position: n.position,
-              })),
-              isBuiltIn: false,
-            }),
-          });
-          if (res.ok) {
-            const saved = await res.json();
-            const newId = saved._id as string;
-            setSelectedSongId(newId);
-            return newId;
-          }
-        } catch {
-          // DB unavailable — fall through to local save
-        }
-        // Local fallback
-        const localId = saveLocalSong(song);
-        setSelectedSongId(localId);
-        return localId;
+        // Save each track as a separate song entry
+        const noteFields = (s: typeof bestSong) =>
+          s.notes.map((n) => ({
+            midiNumber: n.midiNumber,
+            noteName: n.noteName,
+            string: n.string,
+            finger: n.finger,
+            lane: n.lane,
+            startTimeSec: n.startTimeSec,
+            durationSec: n.durationSec,
+            staffPosition: n.staffPosition,
+            accidental: n.accidental,
+            position: n.position,
+          }));
+
+        const saveOne = async (trackIdx: number, trackName: string): Promise<string | undefined> => {
+          const s = mapMidiToViolin(midi, name, trackIdx);
+          if (s.notes.length === 0) return undefined;
+          const title = tracksWithNotes.length > 1
+            ? `${name} — ${trackName}`
+            : name;
+          try {
+            const res = await fetch("/api/songs", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                title, bpm: s.bpm, ticksPerBeat: s.ticksPerBeat,
+                durationSec: s.durationSec, notes: noteFields(s), isBuiltIn: false,
+              }),
+            });
+            if (res.ok) return (await res.json())._id as string;
+          } catch { /* DB unavailable */ }
+          return saveLocalSong({ ...s, title });
+        };
+
+        const ids = await Promise.all(
+          tracksWithNotes.map((t) => saveOne(t.index, t.name || `Track ${t.index + 1}`))
+        );
+
+        const bestTrackInList = tracksWithNotes.findIndex((t) => t.index === bestIdx);
+        const bestId = ids[bestTrackInList >= 0 ? bestTrackInList : 0];
+        if (bestId) setSelectedSongId(bestId);
+        return bestId;
       } catch (err) {
         console.error("MIDI parse error:", err);
         setError(`Failed to parse MIDI file: ${err instanceof Error ? err.message : "Unknown error"}`);
