@@ -6,19 +6,27 @@ export async function GET(
   _req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  await dbConnect();
-  const { id } = await params;
-  const song = await Song.findById(id).lean();
-  if (!song) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  return NextResponse.json(song);
+  try {
+    await dbConnect();
+    const { id } = await params;
+    const song = await Song.findById(id).lean();
+    if (!song) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    return NextResponse.json(song);
+  } catch {
+    return NextResponse.json({ error: "db_unavailable" }, { status: 503 });
+  }
 }
 
 export async function DELETE(
   _req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  await dbConnect();
-  const { id } = await params;
-  await Song.findByIdAndDelete(id);
-  return NextResponse.json({ ok: true });
+  try {
+    await dbConnect();
+    const { id } = await params;
+    await Song.findByIdAndDelete(id);
+    return NextResponse.json({ ok: true });
+  } catch {
+    return NextResponse.json({ error: "db_unavailable" }, { status: 503 });
+  }
 }

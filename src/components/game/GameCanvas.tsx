@@ -8,6 +8,7 @@ import { parseMidi } from "@/lib/midi/parser";
 import type { MidiFile } from "@/lib/midi/types";
 import { mapMidiToViolin, getTrackInfo, type MappedSong, type TrackInfo } from "@/lib/midi/mapper";
 import { drawBackground, drawNote, drawLeftPanel } from "@/lib/game/renderer";
+import { saveLocalSong, loadLocalSong, deleteLocalSong } from "@/lib/localSongs";
 import { updateNotes } from "@/lib/game/noteTrack";
 import { CANVAS_WIDTH, CANVAS_HEIGHT } from "@/lib/game/constants";
 import { useAudioEngine } from "@/hooks/useAudioEngine";
@@ -78,11 +79,12 @@ export default function GameCanvas() {
         if (ctx) {
           const notes = notesRef.current;
           const activeNote = updateNotes(notes, currentTimeRef.current, speedRef.current);
+          const hintNote = notes.find(n => n.state === "upcoming") ?? null;
           drawBackground(ctx, notationRef.current);
           for (const note of notes) {
             drawNote(ctx, note, showFingersRef.current, notationRef.current);
           }
-          drawLeftPanel(ctx, activeNote, notationRef.current);
+          drawLeftPanel(ctx, activeNote, hintNote, notationRef.current);
         }
       }
     }
@@ -217,7 +219,7 @@ export default function GameCanvas() {
 
         loadSong(song);
 
-        // Save to DB and get the new _id
+        // Save to DB and get the new _id; fallback to localStorage if unavailable
         try {
           const res = await fetch("/api/songs", {
             method: "POST",
@@ -249,8 +251,12 @@ export default function GameCanvas() {
             return newId;
           }
         } catch {
-          // DB save is best-effort
+          // DB unavailable — fall through to local save
         }
+        // Local fallback
+        const localId = saveLocalSong(song);
+        setSelectedSongId(localId);
+        return localId;
       } catch (err) {
         console.error("MIDI parse error:", err);
         setError(`Failed to parse MIDI file: ${err instanceof Error ? err.message : "Unknown error"}`);
@@ -262,10 +268,14 @@ export default function GameCanvas() {
   // Delete song
   const handleDeleteSong = useCallback(
     async (songId: string) => {
-      try {
-        await fetch(`/api/songs/${songId}`, { method: "DELETE" });
-      } catch {
-        // best-effort
+      if (songId.startsWith("local-")) {
+        deleteLocalSong(songId);
+      } else {
+        try {
+          await fetch(`/api/songs/${songId}`, { method: "DELETE" });
+        } catch {
+          // best-effort
+        }
       }
       if (selectedSongId === songId) {
         setSelectedSongId("twinkle");
@@ -305,6 +315,15 @@ export default function GameCanvas() {
       parsedMidiRef.current = null;
       if (songId === "twinkle") {
         loadSong(TWINKLE_TWINKLE);
+        return;
+      }
+      if (songId.startsWith("local-")) {
+        const localSong = loadLocalSong(songId);
+        if (localSong) {
+          loadSong(localSong);
+        } else {
+          setError("Local song not found.");
+        }
         return;
       }
       try {

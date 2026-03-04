@@ -12,6 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Music2, Trash2, Upload } from "lucide-react";
+import { listLocalSongs, type LocalSongMeta } from "@/lib/localSongs";
 
 interface SavedSong {
   _id: string;
@@ -40,14 +41,16 @@ export default function SongSelector({
   selectedTrackIndex,
 }: SongSelectorProps) {
   const [songs, setSongs] = useState<SavedSong[]>([]);
+  const [localSongs, setLocalSongs] = useState<LocalSongMeta[]>([]);
   const [uploading, setUploading] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const refreshSongs = useCallback(() => {
+    setLocalSongs(listLocalSongs());
     fetch("/api/songs")
       .then((r) => r.json())
-      .then((data) => setSongs(data))
+      .then((data) => Array.isArray(data) ? setSongs(data) : setSongs([]))
       .catch(() => {});
   }, []);
 
@@ -98,6 +101,11 @@ export default function SongSelector({
             {songs.map((s) => (
               <SelectItem key={s._id} value={s._id}>
                 {s.title}
+              </SelectItem>
+            ))}
+            {localSongs.map((s) => (
+              <SelectItem key={s.id} value={s.id}>
+                {s.title} (local)
               </SelectItem>
             ))}
           </SelectContent>

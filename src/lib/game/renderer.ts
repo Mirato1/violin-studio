@@ -139,7 +139,7 @@ export function drawNote(
 
   // Draw tail (duration trail) - extends upward from the note
   if (note.tailHeight > 0) {
-    const tailWidth = NOTE_RADIUS * 1.2;
+    const tailWidth = NOTE_RADIUS * 0.9;
     const tailTop = y - note.tailHeight;
 
     const tailGrad = ctx.createLinearGradient(x, tailTop, x, y);
@@ -148,7 +148,7 @@ export function drawNote(
     tailGrad.addColorStop(1, fillColor);
 
     ctx.fillStyle = tailGrad;
-    ctx.globalAlpha = alpha * 0.4;
+    ctx.globalAlpha = alpha * 0.3;
     ctx.beginPath();
     ctx.roundRect(
       x - tailWidth / 2,
@@ -184,7 +184,7 @@ export function drawNote(
   ctx.shadowColor = "transparent";
   if (note.state !== "passed") {
     ctx.fillStyle = "rgba(0,0,0,0.5)";
-    ctx.font = "bold 20px sans-serif";
+    ctx.font = "bold 15px sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     const label = showFingers ? String(note.finger) : toNotation(note.noteName.replace(/\d/, ""), notation);
@@ -193,11 +193,28 @@ export function drawNote(
     ctx.fillText(label, x, y);
   } else {
     ctx.fillStyle = "rgba(230,215,180,0.4)";
-    ctx.font = "bold 18px sans-serif";
+    ctx.font = "bold 13px sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     const label = showFingers ? String(note.finger) : toNotation(note.noteName.replace(/\d/, ""), notation);
     ctx.fillText(label, x, y);
+  }
+
+  // Position badge for non-1st position notes
+  if (note.state !== "passed" && (note.position ?? 1) > 1) {
+    const bx = x + NOTE_RADIUS * 0.6;
+    const by = y - NOTE_RADIUS * 0.6;
+    ctx.shadowBlur = 0;
+    ctx.shadowColor = "transparent";
+    ctx.fillStyle = "rgba(230,215,180,0.9)";
+    ctx.beginPath();
+    ctx.arc(bx, by, 9, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#1a1208";
+    ctx.font = "bold 9px sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(String(note.position), bx, by);
   }
 
   ctx.restore();
@@ -360,39 +377,48 @@ function drawVerticalFingerboard(ctx: CanvasRenderingContext2D, note: GameNote, 
 export function drawLeftPanel(
   ctx: CanvasRenderingContext2D,
   activeNote: GameNote | null,
+  hintNote: GameNote | null,
   notation: NotationMode = "abc"
 ) {
-  if (activeNote) {
-    const color = STRING_COLORS[activeNote.string];
+  const displayNote = activeNote ?? hintNote;
+
+  if (displayNote) {
+    const isHint = activeNote === null;
+    const color = STRING_COLORS[displayNote.string];
     const cx = LEFT_PANEL_WIDTH / 2;
+
+    ctx.save();
+    if (isHint) ctx.globalAlpha = 0.45;
 
     // Note name (large, centered)
     ctx.fillStyle = color.fill;
     ctx.font = "bold 40px sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText(toNotationFull(activeNote.noteName, notation), cx, 35);
+    ctx.fillText(toNotationFull(displayNote.noteName, notation), cx, 35);
 
     // String + Finger
-    const fingerText = activeNote.finger === 0 ? "Open" : `Finger ${activeNote.finger}`;
+    const fingerText = displayNote.finger === 0 ? "Open" : `Finger ${displayNote.finger}`;
     ctx.font = "14px sans-serif";
     ctx.fillStyle = color.fill;
     ctx.fillText(
-      `${stringToNotation(activeNote.string, notation)} String`,
+      `${stringToNotation(displayNote.string, notation)} String`,
       cx, 65
     );
     ctx.fillStyle = "rgba(230,215,180,0.7)";
     ctx.fillText(`\u00B7  ${fingerText}`, cx, 82);
 
     // Position
-    const pos = activeNote.position ?? 1;
+    const pos = displayNote.position ?? 1;
     const posLabel = POS_NAMES[pos] ?? `${pos}th`;
     ctx.fillStyle = pos > 1 ? "rgba(230,215,180,0.6)" : "rgba(230,215,180,0.35)";
     ctx.font = "12px sans-serif";
     ctx.fillText(`${posLabel} pos`, cx, 99);
 
     // Vertical fingerboard
-    drawVerticalFingerboard(ctx, activeNote, notation);
+    drawVerticalFingerboard(ctx, displayNote, notation);
+
+    ctx.restore();
   } else {
     // Empty state
     ctx.fillStyle = "rgba(230,215,180,0.3)";
