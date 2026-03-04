@@ -15,7 +15,7 @@ const STRINGS_ORDER: ViolinString[] = ["G", "D", "A", "E"];
 
 export function drawBackground(ctx: CanvasRenderingContext2D) {
   // Dark background
-  ctx.fillStyle = "#0a0a0a";
+  ctx.fillStyle = "#120e08";
   ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
   // Lane backgrounds with subtle gradient
@@ -35,7 +35,7 @@ export function drawBackground(ctx: CanvasRenderingContext2D) {
   }
 
   // Lane dividers
-  ctx.strokeStyle = "rgba(255,255,255,0.08)";
+  ctx.strokeStyle = "rgba(210,180,120,0.08)";
   ctx.lineWidth = 1;
   for (let i = 1; i < LANE_COUNT; i++) {
     ctx.beginPath();
@@ -56,9 +56,9 @@ export function drawBackground(ctx: CanvasRenderingContext2D) {
 
   // Hit line with glow
   ctx.save();
-  ctx.shadowColor = "rgba(255,255,255,0.5)";
+  ctx.shadowColor = "rgba(210,180,120,0.5)";
   ctx.shadowBlur = 10;
-  ctx.strokeStyle = "rgba(255,255,255,0.6)";
+  ctx.strokeStyle = "rgba(210,180,120,0.5)";
   ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.moveTo(0, HIT_LINE_Y);
@@ -146,7 +146,7 @@ export function drawNote(
 
   // Draw note circle with radial gradient
   const grad = ctx.createRadialGradient(x - 3, y - 3, 2, x, y, NOTE_RADIUS);
-  grad.addColorStop(0, note.state === "active" ? "#fff" : color.glow);
+  grad.addColorStop(0, note.state === "active" ? "#f5e6c8" : color.glow);
   grad.addColorStop(0.4, fillColor);
   grad.addColorStop(1, note.state === "passed" ? color.faded : color.fill);
 
@@ -156,7 +156,7 @@ export function drawNote(
   ctx.fill();
 
   // Subtle border
-  ctx.strokeStyle = note.state === "active" ? "rgba(255,255,255,0.6)" : "rgba(255,255,255,0.15)";
+  ctx.strokeStyle = note.state === "active" ? "rgba(230,215,180,0.6)" : "rgba(230,215,180,0.15)";
   ctx.lineWidth = 1.5;
   ctx.beginPath();
   ctx.arc(x, y, NOTE_RADIUS, 0, Math.PI * 2);
@@ -173,10 +173,10 @@ export function drawNote(
     ctx.textBaseline = "middle";
     const label = showFingers ? String(note.finger) : note.noteName.replace(/\d/, "");
     ctx.fillText(label, x + 0.5, y + 0.5);
-    ctx.fillStyle = "#fff";
+    ctx.fillStyle = "#f5e6c8";
     ctx.fillText(label, x, y);
   } else {
-    ctx.fillStyle = "rgba(255,255,255,0.4)";
+    ctx.fillStyle = "rgba(230,215,180,0.4)";
     ctx.font = "bold 13px sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
@@ -196,7 +196,7 @@ function drawStaffNotation(ctx: CanvasRenderingContext2D, note: GameNote) {
   const staffLines = [0, 1, 2, 3, 4].map((i) => staffTop + i * lineSpacing);
 
   // Staff lines
-  ctx.strokeStyle = "rgba(255,255,255,0.3)";
+  ctx.strokeStyle = "rgba(230,215,180,0.3)";
   ctx.lineWidth = 1;
   for (const ly of staffLines) {
     ctx.beginPath();
@@ -224,7 +224,7 @@ function drawStaffNotation(ctx: CanvasRenderingContext2D, note: GameNote) {
   const noteRy = 5.5;
 
   // Ledger lines below staff (staffPosition < 2, i.e. below E4)
-  ctx.strokeStyle = "rgba(255,255,255,0.3)";
+  ctx.strokeStyle = "rgba(230,215,180,0.3)";
   ctx.lineWidth = 1;
   if (staffPosition < 2) {
     for (let pos = 0; pos >= staffPosition; pos -= 2) {
@@ -290,13 +290,13 @@ export function drawOverlay(
 ) {
   // Semi-transparent overlay bar
   const overlayGrad = ctx.createLinearGradient(0, 0, 0, OVERLAY_HEIGHT);
-  overlayGrad.addColorStop(0, "rgba(10,10,10,0.95)");
-  overlayGrad.addColorStop(1, "rgba(10,10,10,0.85)");
+  overlayGrad.addColorStop(0, "rgba(18,14,8,0.95)");
+  overlayGrad.addColorStop(1, "rgba(18,14,8,0.85)");
   ctx.fillStyle = overlayGrad;
   ctx.fillRect(0, 0, CANVAS_WIDTH, OVERLAY_HEIGHT);
 
   // Bottom border
-  ctx.strokeStyle = "rgba(255,255,255,0.1)";
+  ctx.strokeStyle = "rgba(210,180,120,0.1)";
   ctx.lineWidth = 1;
   ctx.beginPath();
   ctx.moveTo(0, OVERLAY_HEIGHT);
@@ -310,7 +310,7 @@ export function drawOverlay(
     ctx.restore();
 
     // Vertical separator
-    ctx.strokeStyle = "rgba(255,255,255,0.1)";
+    ctx.strokeStyle = "rgba(210,180,120,0.1)";
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(280, 10);
@@ -339,19 +339,19 @@ export function drawOverlay(
 
     // Finger
     const fingerText = activeNote.finger === 0 ? "Open" : `Finger ${activeNote.finger}`;
-    ctx.fillStyle = "rgba(255,255,255,0.7)";
+    ctx.fillStyle = "rgba(230,215,180,0.7)";
     ctx.fillText(`\u00B7  ${fingerText}`, infoX + 85, row2Y);
 
     // Position (if not first)
     if (activeNote.position && activeNote.position > 1) {
       const posNames: Record<number, string> = { 2: "2nd", 3: "3rd", 4: "4th", 5: "5th", 6: "6th", 7: "7th" };
       const posText = posNames[activeNote.position] ?? `${activeNote.position}th`;
-      ctx.fillStyle = "rgba(255,255,255,0.5)";
+      ctx.fillStyle = "rgba(230,215,180,0.5)";
       ctx.fillText(`\u00B7  ${posText} pos`, infoX + 195, row2Y);
     }
   } else {
     // Empty state
-    ctx.fillStyle = "rgba(255,255,255,0.3)";
+    ctx.fillStyle = "rgba(230,215,180,0.3)";
     ctx.font = "14px sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
@@ -373,11 +373,11 @@ export function drawProgressBar(
   const trackY = barY + (PROGRESS_BAR_HEIGHT - trackH) / 2;
 
   // Background
-  ctx.fillStyle = "rgba(20,20,20,0.95)";
+  ctx.fillStyle = "rgba(18,14,8,0.95)";
   ctx.fillRect(0, barY, CANVAS_WIDTH, PROGRESS_BAR_HEIGHT);
 
   // Top border
-  ctx.strokeStyle = "rgba(255,255,255,0.08)";
+  ctx.strokeStyle = "rgba(210,180,120,0.08)";
   ctx.lineWidth = 1;
   ctx.beginPath();
   ctx.moveTo(0, barY);
@@ -385,7 +385,7 @@ export function drawProgressBar(
   ctx.stroke();
 
   // Track background
-  ctx.fillStyle = "rgba(255,255,255,0.1)";
+  ctx.fillStyle = "rgba(210,180,120,0.1)";
   ctx.beginPath();
   ctx.roundRect(trackLeft, trackY, trackWidth, trackH, trackH / 2);
   ctx.fill();
@@ -394,8 +394,8 @@ export function drawProgressBar(
   const filledWidth = trackWidth * Math.min(1, progress);
   if (filledWidth > 0) {
     const fillGrad = ctx.createLinearGradient(trackLeft, 0, trackLeft + filledWidth, 0);
-    fillGrad.addColorStop(0, "rgba(255,255,255,0.3)");
-    fillGrad.addColorStop(1, "rgba(255,255,255,0.6)");
+    fillGrad.addColorStop(0, "rgba(230,215,180,0.3)");
+    fillGrad.addColorStop(1, "rgba(230,215,180,0.6)");
     ctx.fillStyle = fillGrad;
     ctx.beginPath();
     ctx.roundRect(trackLeft, trackY, filledWidth, trackH, trackH / 2);
@@ -405,16 +405,16 @@ export function drawProgressBar(
   // Playhead with glow
   const headX = trackLeft + trackWidth * Math.min(1, progress);
   ctx.save();
-  ctx.shadowColor = "rgba(255,255,255,0.6)";
+  ctx.shadowColor = "rgba(210,180,120,0.6)";
   ctx.shadowBlur = 6;
-  ctx.fillStyle = "#fff";
+  ctx.fillStyle = "#f5e6c8";
   ctx.beginPath();
   ctx.arc(headX, trackY + trackH / 2, 6, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
 
   // Time display
-  ctx.fillStyle = "rgba(255,255,255,0.5)";
+  ctx.fillStyle = "rgba(230,215,180,0.5)";
   ctx.font = "10px sans-serif";
   ctx.textAlign = "right";
   ctx.textBaseline = "middle";

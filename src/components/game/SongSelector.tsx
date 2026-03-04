@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -18,45 +18,49 @@ interface SavedSong {
 }
 
 interface SongSelectorProps {
-  onFileUpload: (file: File) => void;
+  onFileUpload: (file: File) => Promise<string | undefined>;
   onSelectSong: (songId: string) => void;
-  currentSongTitle?: string;
+  selectedSongId: string;
 }
 
 export default function SongSelector({
   onFileUpload,
   onSelectSong,
-  currentSongTitle,
+  selectedSongId,
 }: SongSelectorProps) {
   const [songs, setSongs] = useState<SavedSong[]>([]);
+  const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
+  const refreshSongs = useCallback(() => {
     fetch("/api/songs")
       .then((r) => r.json())
       .then((data) => setSongs(data))
       .catch(() => {});
   }, []);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  useEffect(() => {
+    refreshSongs();
+  }, [refreshSongs]);
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      onFileUpload(file);
-      // Refresh song list after upload
-      setTimeout(() => {
-        fetch("/api/songs")
-          .then((r) => r.json())
-          .then((data) => setSongs(data))
-          .catch(() => {});
-      }, 1000);
+    if (!file) return;
+
+    setUploading(true);
+    try {
+      await onFileUpload(file);
+      refreshSongs();
+    } finally {
+      setUploading(false);
     }
-    // Reset input
+
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   return (
     <div className="flex items-center gap-3">
-      <Select onValueChange={onSelectSong} defaultValue="twinkle">
+      <Select value={selectedSongId} onValueChange={onSelectSong}>
         <SelectTrigger className="w-[260px]">
           <SelectValue placeholder="Select a song" />
         </SelectTrigger>
@@ -74,8 +78,9 @@ export default function SongSelector({
         variant="outline"
         size="sm"
         onClick={() => fileInputRef.current?.click()}
+        disabled={uploading}
       >
-        Upload MIDI
+        {uploading ? "Uploading..." : "Upload MIDI"}
       </Button>
       <input
         ref={fileInputRef}
@@ -84,12 +89,6 @@ export default function SongSelector({
         className="hidden"
         onChange={handleFileChange}
       />
-
-      {currentSongTitle && (
-        <span className="text-sm text-muted-foreground">
-          Now playing: {currentSongTitle}
-        </span>
-      )}
     </div>
   );
 }

@@ -27,6 +27,7 @@ export default function GameCanvas() {
   const [isMuted, setIsMuted] = useState(false);
   const [showFingers, setShowFingers] = useState(true);
   const [currentSong, setCurrentSong] = useState<MappedSong | null>(null);
+  const [selectedSongId, setSelectedSongId] = useState("twinkle");
   const [error, setError] = useState<string | null>(null);
 
   const notesRef = useRef<GameNote[]>([]);
@@ -178,9 +179,9 @@ export default function GameCanvas() {
     [audio]
   );
 
-  // MIDI file upload
+  // MIDI file upload — returns the DB _id if saved successfully
   const handleFileUpload = useCallback(
-    async (file: File) => {
+    async (file: File): Promise<string | undefined> => {
       setError(null);
       try {
         const buffer = await file.arrayBuffer();
@@ -195,9 +196,9 @@ export default function GameCanvas() {
 
         loadSong(song);
 
-        // Save to DB (best-effort)
+        // Save to DB and get the new _id
         try {
-          await fetch("/api/songs", {
+          const res = await fetch("/api/songs", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -220,6 +221,12 @@ export default function GameCanvas() {
               isBuiltIn: false,
             }),
           });
+          if (res.ok) {
+            const saved = await res.json();
+            const newId = saved._id as string;
+            setSelectedSongId(newId);
+            return newId;
+          }
         } catch {
           // DB save is best-effort
         }
@@ -235,6 +242,7 @@ export default function GameCanvas() {
   const handleLoadSavedSong = useCallback(
     async (songId: string) => {
       setError(null);
+      setSelectedSongId(songId);
       if (songId === "twinkle") {
         loadSong(TWINKLE_TWINKLE);
         return;
@@ -282,7 +290,7 @@ export default function GameCanvas() {
       <SongSelector
         onFileUpload={handleFileUpload}
         onSelectSong={handleLoadSavedSong}
-        currentSongTitle={currentSong?.title}
+        selectedSongId={selectedSongId}
       />
 
       {error && (

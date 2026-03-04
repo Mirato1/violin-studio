@@ -41,7 +41,7 @@ export default function StaffRenderer({
     const staffLinePositions = [0, 1, 2, 3, 4].map((i) => staffTop + i * lineSpacing);
 
     // Draw staff lines
-    ctx.strokeStyle = "rgba(255,255,255,0.35)";
+    ctx.strokeStyle = "rgba(230,215,180,0.35)";
     ctx.lineWidth = 1.5;
     for (const ly of staffLinePositions) {
       ctx.beginPath();
@@ -51,7 +51,7 @@ export default function StaffRenderer({
     }
 
     // Draw treble clef (simplified text glyph)
-    ctx.fillStyle = "rgba(255,255,255,0.5)";
+    ctx.fillStyle = "rgba(230,215,180,0.5)";
     ctx.font = "60px serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
@@ -66,7 +66,7 @@ export default function StaffRenderer({
     const noteRy = 7;
 
     // Ledger lines
-    ctx.strokeStyle = "rgba(255,255,255,0.35)";
+    ctx.strokeStyle = "rgba(230,215,180,0.35)";
     ctx.lineWidth = 1.5;
     if (note.staffPosition < 2) {
       for (let pos = 0; pos >= note.staffPosition; pos -= 2) {
@@ -89,13 +89,13 @@ export default function StaffRenderer({
 
     // Accidental
     if (note.accidental === "sharp") {
-      ctx.fillStyle = "rgba(255,255,255,0.85)";
+      ctx.fillStyle = "rgba(230,215,180,0.85)";
       ctx.font = "bold 22px serif";
       ctx.textAlign = "right";
       ctx.textBaseline = "middle";
       ctx.fillText("#", noteX - noteRx - 5, noteY);
     } else if (note.accidental === "flat") {
-      ctx.fillStyle = "rgba(255,255,255,0.85)";
+      ctx.fillStyle = "rgba(230,215,180,0.85)";
       ctx.font = "bold 22px serif";
       ctx.textAlign = "right";
       ctx.textBaseline = "middle";

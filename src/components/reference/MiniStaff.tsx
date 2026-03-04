@@ -48,7 +48,7 @@ export default function MiniStaff({ note, width = 80, height = 90 }: MiniStaffPr
     // line 0 = top line (F5, pos 10), line 4 = bottom line (E4, pos 2)
 
     // Draw staff lines
-    ctx.strokeStyle = "rgba(255,255,255,0.3)";
+    ctx.strokeStyle = "rgba(230,215,180,0.3)";
     ctx.lineWidth = 1;
     for (const ly of staffLinePositions) {
       ctx.beginPath();
@@ -66,7 +66,7 @@ export default function MiniStaff({ note, width = 80, height = 90 }: MiniStaffPr
     const noteRy = 4.5;
 
     // Draw ledger lines if needed
-    ctx.strokeStyle = "rgba(255,255,255,0.3)";
+    ctx.strokeStyle = "rgba(230,215,180,0.3)";
     ctx.lineWidth = 1;
     // Below staff (staffPosition < 2): ledger lines at pos 0, -2, etc.
     if (note.staffPosition < 2) {
@@ -91,13 +91,13 @@ export default function MiniStaff({ note, width = 80, height = 90 }: MiniStaffPr
 
     // Draw accidental
     if (note.accidental === "sharp") {
-      ctx.fillStyle = "rgba(255,255,255,0.8)";
+      ctx.fillStyle = "rgba(230,215,180,0.8)";
       ctx.font = "bold 14px serif";
       ctx.textAlign = "right";
       ctx.textBaseline = "middle";
       ctx.fillText("#", noteX - noteRx - 3, noteY);
     } else if (note.accidental === "flat") {
-      ctx.fillStyle = "rgba(255,255,255,0.8)";
+      ctx.fillStyle = "rgba(230,215,180,0.8)";
       ctx.font = "bold 14px serif";
       ctx.textAlign = "right";
       ctx.textBaseline = "middle";
