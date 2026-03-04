@@ -184,7 +184,7 @@ export function drawNote(
   ctx.shadowColor = "transparent";
   if (note.state !== "passed") {
     ctx.fillStyle = "rgba(0,0,0,0.5)";
-    ctx.font = "bold 18px sans-serif";
+    ctx.font = "bold 20px sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     const label = showFingers ? String(note.finger) : toNotation(note.noteName.replace(/\d/, ""), notation);
@@ -193,7 +193,7 @@ export function drawNote(
     ctx.fillText(label, x, y);
   } else {
     ctx.fillStyle = "rgba(230,215,180,0.4)";
-    ctx.font = "bold 16px sans-serif";
+    ctx.font = "bold 18px sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     const label = showFingers ? String(note.finger) : toNotation(note.noteName.replace(/\d/, ""), notation);
@@ -212,9 +212,9 @@ const POS_NAMES: Record<number, string> = { 1: "1st", 2: "2nd", 3: "3rd", 4: "4t
 /** Draw a vertical fingerboard diagram inside the left panel */
 function drawVerticalFingerboard(ctx: CanvasRenderingContext2D, note: GameNote, notation: NotationMode) {
   const fbLeft = 30;
-  const fbTop = 115;
+  const fbTop = 140;
   const fbWidth = 180;
-  const fbHeight = 540;
+  const fbHeight = 510;
   const fbRight = fbLeft + fbWidth;
   const fbBottom = fbTop + fbHeight;
   const nutHeight = 6;
@@ -290,7 +290,7 @@ function drawVerticalFingerboard(ctx: CanvasRenderingContext2D, note: GameNote, 
   for (let i = 0; i < 4; i++) {
     const s = STRINGS_ORDER[i];
     ctx.fillStyle = STRING_COLORS[s].faded;
-    ctx.fillText(stringToNotation(s, notation), stringXs[i], fbTop - 5);
+    ctx.fillText(stringToNotation(s, notation), stringXs[i], fbTop - 8);
   }
 
   // Finger placement

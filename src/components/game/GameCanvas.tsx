@@ -320,25 +320,27 @@ export default function GameCanvas() {
           ticksPerBeat: data.ticksPerBeat,
           durationSec: data.durationSec,
           notes: data.notes.map((n: Record<string, unknown>, i: number) => {
-            // Recover missing violin data for songs saved before these fields existed
-            const vNote = (n.position == null || n.staffPosition == null)
-              ? findNoteByMidi(Number(n.midiNumber), n.string as string)
+            const STRING_TO_LANE: Record<string, number> = { G: 0, D: 1, A: 2, E: 3 };
+            // Old DB records lack position — fully re-derive from violinNotes
+            const needsRecovery = n.position == null || n.staffPosition == null;
+            const vNote = needsRecovery
+              ? findNoteByMidi(Number(n.midiNumber))
               : undefined;
             return {
               id: `db-${i}`,
               midiNumber: n.midiNumber,
-              noteName: n.noteName,
-              string: n.string,
-              finger: n.finger,
-              lane: n.lane,
+              noteName: vNote?.name ?? n.noteName,
+              string: vNote?.string ?? n.string,
+              finger: vNote?.finger ?? n.finger,
+              lane: vNote ? STRING_TO_LANE[vNote.string] : (n.lane as number),
               startTimeSec: n.startTimeSec,
               durationSec: n.durationSec,
               y: 0,
               tailHeight: 0,
               state: "upcoming" as const,
-              staffPosition: n.staffPosition ?? vNote?.staffPosition ?? 0,
-              accidental: (n.accidental as "sharp" | "flat" | undefined) ?? vNote?.accidental,
-              position: n.position != null ? Number(n.position) : vNote?.position,
+              staffPosition: vNote?.staffPosition ?? (n.staffPosition as number) ?? 0,
+              accidental: vNote?.accidental ?? (n.accidental as "sharp" | "flat" | undefined),
+              position: vNote?.position ?? (n.position != null ? Number(n.position) : undefined),
             };
           }),
         };
