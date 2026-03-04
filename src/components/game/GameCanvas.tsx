@@ -393,6 +393,7 @@ export default function GameCanvas() {
           loadSong(song)
 
           const id = await saveSong(song, name)
+          await fetchPlaylist()
           if (id) setSelectedSongId(id)
           return id
         } catch (err) {
@@ -438,6 +439,7 @@ export default function GameCanvas() {
 
         const bestTrackInList = tracksWithNotes.findIndex((t) => t.index === bestIdx)
         const bestId = ids[bestTrackInList >= 0 ? bestTrackInList : 0]
+        await fetchPlaylist()
         if (bestId) setSelectedSongId(bestId)
         return bestId
       } catch (err) {
@@ -445,7 +447,7 @@ export default function GameCanvas() {
         setError(`Failed to parse MIDI file: ${err instanceof Error ? err.message : 'Unknown error'}`)
       }
     },
-    [loadSong, saveSong],
+    [loadSong, saveSong, fetchPlaylist],
   )
 
   // Delete song
