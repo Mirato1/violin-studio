@@ -1,7 +1,7 @@
 export const CANVAS_WIDTH = 800;
 export const CANVAS_HEIGHT = 600;
 export const HIT_LINE_Y = CANVAS_HEIGHT * 0.85;
-export const OVERLAY_HEIGHT = 60;
+export const OVERLAY_HEIGHT = 110;
 export const PROGRESS_BAR_HEIGHT = 30;
 export const NOTE_RADIUS = 20;
 export const LANE_COUNT = 4;

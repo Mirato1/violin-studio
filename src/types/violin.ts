@@ -8,10 +8,12 @@ export interface ViolinNote {
   displayName: string; // e.g. "A", "F#"
   midiNumber: number;
   string: ViolinString;
-  finger: FingerNumber;
-  /** Semitone offset from bottom staff line (E4=0). Used for staff rendering. */
+  finger: FingerNumber | number;
+  /** Diatonic step offset from C4 (C4=0, D4=1, E4=2, F4=3, G4=4, A4=5, B4=6, C5=7...). Used for staff rendering. */
   staffPosition: number;
   accidental?: "sharp" | "flat";
+  /** Violin position (1=first, 3=third, 5=fifth). Defaults to 1. */
+  position?: number;
 }
 
 export const STRING_COLORS: Record<

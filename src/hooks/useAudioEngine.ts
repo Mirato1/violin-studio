@@ -69,15 +69,21 @@ export function useAudioEngine() {
     };
   }, []);
 
-  return {
-    init,
-    schedule,
-    play,
-    pause,
-    stop,
-    seekTo,
-    setVolume,
-    setMuted,
-    getTransportSeconds,
-  };
+  // IMPORTANT: useMemo so the returned object is referentially stable.
+  // Without this, every render creates a new object, which cascades into
+  // useCallback/useEffect deps and causes re-runs (e.g. reloading Twinkle).
+  return useMemo(
+    () => ({
+      init,
+      schedule,
+      play,
+      pause,
+      stop,
+      seekTo,
+      setVolume,
+      setMuted,
+      getTransportSeconds,
+    }),
+    [init, schedule, play, pause, stop, seekTo, setVolume, setMuted, getTransportSeconds]
+  );
 }

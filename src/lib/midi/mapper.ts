@@ -5,9 +5,9 @@ import { findNoteByMidi, VIOLIN_NOTES } from "@/data/violinNotes";
 const STRING_TO_LANE: Record<string, number> = { G: 0, D: 1, A: 2, E: 3 };
 
 const MIN_MIDI = Math.min(...VIOLIN_NOTES.map((n) => n.midiNumber)); // 55 (G3)
-const MAX_MIDI = Math.max(...VIOLIN_NOTES.map((n) => n.midiNumber)); // 83 (B5)
+const MAX_MIDI = Math.max(...VIOLIN_NOTES.map((n) => n.midiNumber)); // 93 (A6)
 
-/** Transpose a MIDI note into violin first-position range by octave shifts */
+/** Transpose a MIDI note into playable violin range by octave shifts */
 function clampToRange(midi: number): number {
   let m = midi;
   while (m < MIN_MIDI) m += 12;
@@ -136,6 +136,9 @@ export function mapMidiToViolin(midi: MidiFile, title: string = "Untitled"): Map
       y: 0,
       tailHeight: 0,
       state: "upcoming",
+      staffPosition: vNote.staffPosition,
+      accidental: vNote.accidental,
+      position: vNote.position,
     });
 
     lastString = vNote.string;

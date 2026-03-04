@@ -5,13 +5,16 @@ export interface GameNote {
   midiNumber: number;
   noteName: string;
   string: ViolinString;
-  finger: FingerNumber;
+  finger: FingerNumber | number;
   lane: number; // 0=G, 1=D, 2=A, 3=E
   startTimeSec: number;
   durationSec: number;
   y: number;
   tailHeight: number;
   state: "upcoming" | "active" | "passed";
+  staffPosition?: number;
+  accidental?: "sharp" | "flat";
+  position?: number;
 }
 
 export interface GameState {

@@ -99,8 +99,11 @@ export default function GameCanvas() {
     [audio]
   );
 
-  // Load demo on mount
+  // Load demo on mount (only once)
+  const mountedRef = useRef(false);
   useEffect(() => {
+    if (mountedRef.current) return;
+    mountedRef.current = true;
     loadSong(TWINKLE_TWINKLE);
   }, [loadSong]);
 
@@ -210,6 +213,9 @@ export default function GameCanvas() {
                 lane: n.lane,
                 startTimeSec: n.startTimeSec,
                 durationSec: n.durationSec,
+                staffPosition: n.staffPosition,
+                accidental: n.accidental,
+                position: n.position,
               })),
               isBuiltIn: false,
             }),
@@ -257,6 +263,9 @@ export default function GameCanvas() {
             y: 0,
             tailHeight: 0,
             state: "upcoming" as const,
+            staffPosition: n.staffPosition,
+            accidental: n.accidental,
+            position: n.position,
           })),
         };
         loadSong(song);

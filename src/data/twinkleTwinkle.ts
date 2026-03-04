@@ -1,4 +1,5 @@
 import type { GameNote } from "@/types/game";
+import { findNoteByMidi } from "@/data/violinNotes";
 
 /**
  * Twinkle Twinkle Little Star - pre-parsed for first position violin.
@@ -86,17 +87,22 @@ export const TWINKLE_TWINKLE: {
   bpm: BPM,
   ticksPerBeat: 480,
   durationSec: 48 * BEAT,
-  notes: melody.map((n, i) => ({
-    id: `twinkle-${i}`,
-    midiNumber: n.midi,
-    noteName: n.name,
-    string: n.string,
-    finger: n.finger,
-    lane: n.lane,
-    startTimeSec: n.beat * BEAT,
-    durationSec: n.duration * BEAT,
-    y: 0,
-    tailHeight: 0,
-    state: "upcoming" as const,
-  })),
+  notes: melody.map((n, i) => {
+    const vNote = findNoteByMidi(n.midi, n.string);
+    return {
+      id: `twinkle-${i}`,
+      midiNumber: n.midi,
+      noteName: n.name,
+      string: n.string,
+      finger: n.finger,
+      lane: n.lane,
+      startTimeSec: n.beat * BEAT,
+      durationSec: n.duration * BEAT,
+      y: 0,
+      tailHeight: 0,
+      state: "upcoming" as const,
+      staffPosition: vNote?.staffPosition ?? 0,
+      accidental: vNote?.accidental,
+    };
+  }),
 };
