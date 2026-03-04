@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
+import type { TrackInfo } from "@/lib/midi/mapper";
 import {
   Select,
   SelectContent,
@@ -20,13 +21,19 @@ interface SavedSong {
 interface SongSelectorProps {
   onFileUpload: (file: File) => Promise<string | undefined>;
   onSelectSong: (songId: string) => void;
+  onTrackChange: (trackIndex: number) => void;
   selectedSongId: string;
+  availableTracks: TrackInfo[];
+  selectedTrackIndex: number | null;
 }
 
 export default function SongSelector({
   onFileUpload,
   onSelectSong,
+  onTrackChange,
   selectedSongId,
+  availableTracks,
+  selectedTrackIndex,
 }: SongSelectorProps) {
   const [songs, setSongs] = useState<SavedSong[]>([]);
   const [uploading, setUploading] = useState(false);
@@ -59,7 +66,7 @@ export default function SongSelector({
   };
 
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex flex-wrap items-center gap-3">
       <Select value={selectedSongId} onValueChange={onSelectSong}>
         <SelectTrigger className="w-[260px]">
           <SelectValue placeholder="Select a song" />
@@ -73,6 +80,24 @@ export default function SongSelector({
           ))}
         </SelectContent>
       </Select>
+
+      {availableTracks.length > 1 && selectedTrackIndex !== null && (
+        <Select
+          value={String(selectedTrackIndex)}
+          onValueChange={(v) => onTrackChange(Number(v))}
+        >
+          <SelectTrigger className="w-[220px]">
+            <SelectValue placeholder="Select track" />
+          </SelectTrigger>
+          <SelectContent>
+            {availableTracks.map((t) => (
+              <SelectItem key={t.index} value={String(t.index)}>
+                {t.name} ({t.noteCount} notes){t.isBestGuess ? " \u2605" : ""}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
 
       <Button
         variant="outline"

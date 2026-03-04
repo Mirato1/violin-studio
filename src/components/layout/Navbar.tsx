@@ -8,7 +8,7 @@ import { useNotation } from "@/contexts/NotationContext";
 const NAV_ITEMS = [
   { href: "/", label: "Home" },
   { href: "/flashcards", label: "Flashcards" },
-  { href: "/game", label: "Guitar Hero" },
+  { href: "/game", label: "Play Along" },
   { href: "/reference", label: "Reference" },
 ];
 

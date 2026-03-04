@@ -16,12 +16,25 @@ function clampToRange(midi: number): number | null {
   return null;
 }
 
-/** Select the best track for solo violin from a multi-track MIDI file.
- *  Uses track name matching and note-range analysis. */
-function selectBestTrack(midi: MidiFile): number {
-  if (midi.format === 0 || midi.tracks.length <= 1) return 0;
+export interface TrackInfo {
+  index: number;
+  name: string;
+  noteCount: number;
+  inRangePercent: number;
+  isBestGuess: boolean;
+}
 
-  const scores = midi.tracks.map((track, idx) => {
+/** Analyze all tracks and return info for each one that has notes. */
+export function getTrackInfo(midi: MidiFile): TrackInfo[] {
+  if (midi.format === 0 || midi.tracks.length <= 1) {
+    const noteCount = midi.tracks[0]?.events.filter(
+      (e) => e.type === "noteOn" && e.velocity > 0
+    ).length ?? 0;
+    if (noteCount === 0) return [];
+    return [{ index: 0, name: "Track 1", noteCount, inRangePercent: 100, isBestGuess: true }];
+  }
+
+  const analyzed = midi.tracks.map((track, idx) => {
     let trackName = "";
     let noteCount = 0;
     let inRangeCount = 0;
@@ -39,15 +52,31 @@ function selectBestTrack(midi: MidiFile): number {
     const rangeRatio = noteCount > 0 ? inRangeCount / noteCount : 0;
     const nameBonus = /violin|solo|vln|violine|violino/i.test(trackName) ? 1000 : 0;
     const score = inRangeCount * rangeRatio + nameBonus;
+    const inRangePercent = noteCount > 0 ? Math.round((inRangeCount / noteCount) * 100) : 0;
 
-    return { idx, noteCount, score };
+    return { idx, trackName: trackName || `Track ${idx + 1}`, noteCount, inRangePercent, score };
   });
 
-  const best = scores
-    .filter((s) => s.noteCount > 0)
-    .sort((a, b) => b.score - a.score);
+  const withNotes = analyzed.filter((t) => t.noteCount > 0);
+  if (withNotes.length === 0) return [];
 
-  return best.length > 0 ? best[0].idx : 0;
+  const sorted = [...withNotes].sort((a, b) => b.score - a.score);
+  const bestIdx = sorted[0].idx;
+
+  return withNotes.map((t) => ({
+    index: t.idx,
+    name: t.trackName,
+    noteCount: t.noteCount,
+    inRangePercent: t.inRangePercent,
+    isBestGuess: t.idx === bestIdx,
+  }));
+}
+
+/** Select the best track for solo violin from a multi-track MIDI file. */
+function selectBestTrack(midi: MidiFile): number {
+  const tracks = getTrackInfo(midi);
+  const best = tracks.find((t) => t.isBestGuess);
+  return best ? best.index : 0;
 }
 
 interface TempoEntry {
@@ -99,13 +128,14 @@ export interface MappedSong {
   notes: GameNote[];
 }
 
-/** Map a parsed MIDI file to game notes with violin string/finger assignments */
-export function mapMidiToViolin(midi: MidiFile, title: string = "Untitled"): MappedSong {
+/** Map a parsed MIDI file to game notes with violin string/finger assignments.
+ *  Pass trackIndex to select a specific track, or omit to auto-select. */
+export function mapMidiToViolin(midi: MidiFile, title: string = "Untitled", trackIndex?: number): MappedSong {
   const tempoMap = buildTempoMap(midi);
   const { ticksPerBeat } = midi;
 
-  // Select the best track for violin notes (solo part)
-  const bestTrackIdx = selectBestTrack(midi);
+  // Select track: explicit index or auto-detect best
+  const bestTrackIdx = trackIndex ?? selectBestTrack(midi);
 
   interface PendingNote {
     midi: number;

@@ -33,19 +33,22 @@ export default function GameControls({
   onFingersToggle,
 }: GameControlsProps) {
   return (
-    <div className="flex flex-wrap items-center gap-3">
-      {/* Play / Pause */}
-      <Button onClick={onPlayPause} variant="default" size="sm">
-        {status === "playing" ? "Pause" : status === "paused" ? "Resume" : "Play"}
-      </Button>
+    <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-card/50 px-4 py-2.5">
+      {/* Playback */}
+      <div className="flex items-center gap-2">
+        <Button onClick={onPlayPause} variant="default" size="sm">
+          {status === "playing" ? "Pause" : status === "paused" ? "Resume" : "Play"}
+        </Button>
+        <Button onClick={onRestart} variant="outline" size="sm">
+          Restart
+        </Button>
+      </div>
 
-      <Button onClick={onRestart} variant="outline" size="sm">
-        Restart
-      </Button>
+      <div className="h-6 border-l border-border" />
 
       {/* Speed */}
       <div className="flex items-center gap-1">
-        <span className="text-xs text-muted-foreground">Speed:</span>
+        <span className="mr-1 text-xs text-muted-foreground">Speed:</span>
         {SPEED_OPTIONS.map((s) => (
           <Button
             key={s}
@@ -59,16 +62,17 @@ export default function GameControls({
         ))}
       </div>
 
+      <div className="h-6 border-l border-border" />
+
       {/* Volume */}
       <div className="flex items-center gap-2">
-        <Toggle
-          pressed={isMuted}
-          onPressedChange={onMuteToggle}
-          size="sm"
+        <button
+          onClick={onMuteToggle}
+          className="text-sm text-muted-foreground transition-colors hover:text-foreground"
           aria-label="Toggle mute"
         >
-          {isMuted ? "Muted" : "Audio"}
-        </Toggle>
+          {isMuted ? "\uD83D\uDD07" : "\uD83D\uDD0A"}
+        </button>
         <Slider
           value={[volume]}
           onValueChange={([v]) => onVolumeChange(v)}
@@ -80,7 +84,9 @@ export default function GameControls({
         />
       </div>
 
-      {/* Fingers / Notes toggle */}
+      <div className="h-6 border-l border-border" />
+
+      {/* Display toggle */}
       <Toggle
         pressed={showFingers}
         onPressedChange={onFingersToggle}

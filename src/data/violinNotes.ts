@@ -43,6 +43,7 @@ export const VIOLIN_NOTES: ViolinNote[] = [
   { id: "F5", name: "F5", displayName: "F", midiNumber: 77, string: "E", finger: 1, staffPosition: 10 },
   { id: "F#5", name: "F#5", displayName: "F#", midiNumber: 78, string: "E", finger: 1, staffPosition: 10, accidental: "sharp" },
   { id: "G5", name: "G5", displayName: "G", midiNumber: 79, string: "E", finger: 2, staffPosition: 11 },
+  { id: "G#5", name: "G#5", displayName: "G#", midiNumber: 80, string: "E", finger: 2, staffPosition: 11, accidental: "sharp" },
   { id: "A5", name: "A5", displayName: "A", midiNumber: 81, string: "E", finger: 3, staffPosition: 12 },
   { id: "Bb5", name: "Bb5", displayName: "Bb", midiNumber: 82, string: "E", finger: 4, staffPosition: 13, accidental: "flat" },
   { id: "B5", name: "B5", displayName: "B", midiNumber: 83, string: "E", finger: 4, staffPosition: 13 },

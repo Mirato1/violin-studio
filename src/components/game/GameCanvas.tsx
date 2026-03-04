@@ -4,7 +4,8 @@ import { useRef, useState, useCallback, useEffect } from "react";
 import type { GameNote } from "@/types/game";
 import { TWINKLE_TWINKLE } from "@/data/twinkleTwinkle";
 import { parseMidi } from "@/lib/midi/parser";
-import { mapMidiToViolin, type MappedSong } from "@/lib/midi/mapper";
+import type { MidiFile } from "@/lib/midi/types";
+import { mapMidiToViolin, getTrackInfo, type MappedSong, type TrackInfo } from "@/lib/midi/mapper";
 import { drawBackground, drawNote, drawOverlay, drawProgressBar } from "@/lib/game/renderer";
 import { updateNotes } from "@/lib/game/noteTrack";
 import { CANVAS_WIDTH, CANVAS_HEIGHT, PROGRESS_BAR_HEIGHT } from "@/lib/game/constants";
@@ -29,15 +30,21 @@ export default function GameCanvas() {
   const [showFingers, setShowFingers] = useState(true);
   const [currentSong, setCurrentSong] = useState<MappedSong | null>(null);
   const [selectedSongId, setSelectedSongId] = useState("twinkle");
+  const [availableTracks, setAvailableTracks] = useState<TrackInfo[]>([]);
+  const [selectedTrackIndex, setSelectedTrackIndex] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const { notation } = useNotation();
 
   const notesRef = useRef<GameNote[]>([]);
   const songRef = useRef<MappedSong | null>(null);
+  const parsedMidiRef = useRef<MidiFile | null>(null);
+  const midiTitleRef = useRef("");
   const speedRef = useRef(speed);
   const showFingersRef = useRef(showFingers);
   const statusRef = useRef(status);
   const notationRef = useRef(notation);
+  const volumeRef = useRef(volume);
+  const isMutedRef = useRef(isMuted);
 
   const audio = useAudioEngine();
 
@@ -46,6 +53,8 @@ export default function GameCanvas() {
   useEffect(() => { showFingersRef.current = showFingers; }, [showFingers]);
   useEffect(() => { statusRef.current = status; }, [status]);
   useEffect(() => { notationRef.current = notation; }, [notation]);
+  useEffect(() => { volumeRef.current = volume; }, [volume]);
+  useEffect(() => { isMutedRef.current = isMuted; }, [isMuted]);
 
   // Render loop
   const renderFrame = useCallback(() => {
@@ -119,6 +128,9 @@ export default function GameCanvas() {
       setStatus("paused");
     } else {
       await audio.init();
+      // Apply current volume/mute after init (effect may have fired before engine existed)
+      audio.setVolume(volumeRef.current);
+      audio.setMuted(isMutedRef.current);
       if (status === "idle") {
         if (songRef.current) {
           notesRef.current = deepCloneNotes(songRef.current.notes);
@@ -191,7 +203,17 @@ export default function GameCanvas() {
         const buffer = await file.arrayBuffer();
         const midi = parseMidi(buffer);
         const name = file.name.replace(/\.(mid|midi)$/i, "");
-        const song = mapMidiToViolin(midi, name);
+
+        // Store parsed MIDI for re-mapping when user changes track
+        parsedMidiRef.current = midi;
+        midiTitleRef.current = name;
+        const tracks = getTrackInfo(midi);
+        setAvailableTracks(tracks);
+        const bestTrack = tracks.find((t) => t.isBestGuess);
+        const bestIdx = bestTrack ? bestTrack.index : 0;
+        setSelectedTrackIndex(bestIdx);
+
+        const song = mapMidiToViolin(midi, name, bestIdx);
 
         if (song.notes.length === 0) {
           setError("No playable violin notes found in this MIDI file.");
@@ -242,11 +264,31 @@ export default function GameCanvas() {
     [loadSong]
   );
 
+  // Track change (re-map same MIDI with different track)
+  const handleTrackChange = useCallback(
+    (trackIndex: number) => {
+      if (!parsedMidiRef.current) return;
+      setSelectedTrackIndex(trackIndex);
+      const song = mapMidiToViolin(parsedMidiRef.current, midiTitleRef.current, trackIndex);
+      if (song.notes.length === 0) {
+        setError("No playable violin notes in this track.");
+        return;
+      }
+      setError(null);
+      loadSong(song);
+    },
+    [loadSong]
+  );
+
   // Load saved song
   const handleLoadSavedSong = useCallback(
     async (songId: string) => {
       setError(null);
       setSelectedSongId(songId);
+      // Clear track selector for non-MIDI songs
+      setAvailableTracks([]);
+      setSelectedTrackIndex(null);
+      parsedMidiRef.current = null;
       if (songId === "twinkle") {
         loadSong(TWINKLE_TWINKLE);
         return;
@@ -294,7 +336,10 @@ export default function GameCanvas() {
       <SongSelector
         onFileUpload={handleFileUpload}
         onSelectSong={handleLoadSavedSong}
+        onTrackChange={handleTrackChange}
         selectedSongId={selectedSongId}
+        availableTracks={availableTracks}
+        selectedTrackIndex={selectedTrackIndex}
       />
 
       {error && (

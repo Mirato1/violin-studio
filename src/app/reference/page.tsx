@@ -1,15 +1,35 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import type { ViolinString } from "@/types/violin";
-import { VIOLIN_STRINGS } from "@/types/violin";
 import { VIOLIN_NOTES } from "@/data/violinNotes";
+import { VIOLIN_SCALES } from "@/data/scales";
 import StringFilter from "@/components/reference/StringFilter";
 import NoteCard from "@/components/reference/NoteCard";
-import Fingerboard from "@/components/reference/Fingerboard";
+import FingerboardChart from "@/components/reference/FingerboardChart";
+import MiniStaff from "@/components/reference/MiniStaff";
+import { useNotation } from "@/contexts/NotationContext";
+import { toNotation, stringToNotation } from "@/lib/notation";
+import { STRING_COLORS } from "@/types/violin";
+import { cn } from "@/lib/utils";
 
 export default function ReferencePage() {
   const [selectedString, setSelectedString] = useState<ViolinString | "all">("all");
+  const [selectedScaleId, setSelectedScaleId] = useState<string | null>(null);
+  const { notation } = useNotation();
+
+  const selectedScale = VIOLIN_SCALES.find((s) => s.id === selectedScaleId) ?? null;
+  const highlightedNoteIds = useMemo(
+    () => (selectedScale ? new Set(selectedScale.noteIds) : undefined),
+    [selectedScale]
+  );
+
+  const scaleNotes = useMemo(() => {
+    if (!selectedScale) return [];
+    return selectedScale.noteIds
+      .map((id) => VIOLIN_NOTES.find((n) => n.id === id))
+      .filter(Boolean) as typeof VIOLIN_NOTES;
+  }, [selectedScale]);
 
   const filteredNotes =
     selectedString === "all"
@@ -26,12 +46,76 @@ export default function ReferencePage() {
         </p>
       </div>
 
-      <StringFilter
-        selected={selectedString}
-        onSelect={setSelectedString}
+      <StringFilter selected={selectedString} onSelect={setSelectedString} />
+
+      <FingerboardChart
+        selectedString={selectedString}
+        highlightedNoteIds={highlightedNoteIds}
       />
 
-      <Fingerboard selectedString={selectedString} />
+      {/* Scales section */}
+      <div>
+        <h2 className="gold-text text-xl font-bold tracking-tight">Scales</h2>
+        <div className="gold-divider mt-1 w-16" />
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        <button
+          onClick={() => setSelectedScaleId(null)}
+          className={cn(
+            "rounded-md border px-3 py-1.5 text-sm font-semibold transition-all",
+            !selectedScaleId
+              ? "border-gold/40 bg-primary text-primary-foreground gold-glow"
+              : "border-transparent bg-secondary text-secondary-foreground hover:border-gold/20 hover:bg-accent"
+          )}
+        >
+          None
+        </button>
+        {VIOLIN_SCALES.map((scale) => (
+          <button
+            key={scale.id}
+            onClick={() => setSelectedScaleId(scale.id)}
+            className={cn(
+              "rounded-md border px-3 py-1.5 text-sm font-semibold transition-all",
+              selectedScaleId === scale.id
+                ? "border-gold/40 bg-primary text-primary-foreground gold-glow"
+                : "border-transparent bg-secondary text-secondary-foreground hover:border-gold/20 hover:bg-accent"
+            )}
+          >
+            {toNotation(scale.key, notation)} {scale.name.split(" ").slice(1).join(" ")}
+          </button>
+        ))}
+      </div>
+
+      {selectedScale && scaleNotes.length > 0 && (
+        <div className="overflow-x-auto rounded-lg border border-gold/20 bg-card p-4">
+          <div className="flex items-end justify-center gap-4">
+            {scaleNotes.map((note, i) => (
+              <div key={note.id + i} className="flex flex-col items-center gap-1">
+                <MiniStaff note={note} />
+                <div
+                  className="text-sm font-bold"
+                  style={{ color: STRING_COLORS[note.string].fill }}
+                >
+                  {toNotation(note.displayName, notation)}
+                  <span className="text-[10px] opacity-70">{note.name.slice(-1)}</span>
+                </div>
+                <div className="text-[10px] text-muted-foreground">
+                  {note.finger === 0
+                    ? stringToNotation(note.string, notation)
+                    : `${note.finger}`}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* All notes grid */}
+      <div>
+        <h2 className="gold-text text-xl font-bold tracking-tight">Notes</h2>
+        <div className="gold-divider mt-1 w-16" />
+      </div>
 
       <div className="grid gap-3 sm:grid-cols-3 md:grid-cols-4">
         {filteredNotes.map((note) => (
