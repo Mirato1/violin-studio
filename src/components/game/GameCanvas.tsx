@@ -7,7 +7,7 @@ import { findNoteByMidi } from '@/data/violinNotes'
 import { parseMidi } from '@/lib/midi/parser'
 import type { MidiFile } from '@/lib/midi/types'
 import { mapMidiToViolin, getTrackInfo, type MappedSong, type TrackInfo } from '@/lib/midi/mapper'
-import { drawBackground, drawNote, drawLeftPanel, drawEdgeFades, drawSlurArcs } from '@/lib/game/renderer'
+import { drawBackground, drawNote, drawLeftPanel, drawEdgeFades, drawSlurArcs, drawChordConnectors } from '@/lib/game/renderer'
 import { saveLocalSong, loadLocalSong, deleteLocalSong, listLocalSongs } from '@/lib/localSongs'
 import { updateNotes } from '@/lib/game/noteTrack'
 import { CANVAS_WIDTH, CANVAS_HEIGHT, NOTE_RADIUS, LEAD_IN_SEC } from '@/lib/game/constants'
@@ -132,13 +132,18 @@ export default function GameCanvas() {
           const activeIdx = activeNote ? notes.indexOf(activeNote) : -1
           const centerIdx = activeIdx >= 0 ? activeIdx : (hintNote ? notes.indexOf(hintNote) : -1)
           const surroundingNotes = centerIdx >= 0 ? notes.slice(Math.max(0, centerIdx - 3), centerIdx + 4) : undefined
+          const displayNote = activeNote ?? hintNote
+          const chordNotes = displayNote
+            ? notes.filter((n) => n.state !== 'passed' && Math.abs(n.startTimeSec - displayNote.startTimeSec) < 0.025)
+            : []
           drawBackground(ctx, notationRef.current)
+          drawChordConnectors(ctx, notes)
           for (const note of notes) {
             drawNote(ctx, note, showFingersRef.current, notationRef.current)
           }
           drawEdgeFades(ctx)
           drawSlurArcs(ctx, notes)
-          drawLeftPanel(ctx, activeNote, hintNote, notationRef.current, surroundingNotes, showFingersRef.current, activePositionsRef.current)
+          drawLeftPanel(ctx, activeNote, hintNote, notationRef.current, surroundingNotes, showFingersRef.current, activePositionsRef.current, chordNotes)
 
         }
       }

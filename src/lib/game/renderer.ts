@@ -242,7 +242,8 @@ const MAX_SEMITONES = 14;
 const POS_NAMES: Record<number, string> = { 1: "1st", 2: "2nd", 3: "3rd", 4: "4th", 5: "5th", 6: "6th", 7: "7th" };
 
 /** Draw a vertical fingerboard diagram inside the left panel */
-function drawVerticalFingerboard(ctx: CanvasRenderingContext2D, note: GameNote, notation: NotationMode, hintNote?: GameNote | null) {
+function drawVerticalFingerboard(ctx: CanvasRenderingContext2D, notes: GameNote[], notation: NotationMode, hintNote?: GameNote | null) {
+  const note = notes[0]; // primary note for position label
   const fbWidth = 220;
   const fbLeft = (LEFT_PANEL_WIDTH - fbWidth) / 2; // centered in panel
   const fbTop = 120;
@@ -325,23 +326,22 @@ function drawVerticalFingerboard(ctx: CanvasRenderingContext2D, note: GameNote, 
     ctx.fillText(stringToNotation(s, notation), stringXs[i], fbTop - 8);
   }
 
-  // Finger placement
-  const semiAbove = Math.max(0, note.midiNumber - OPEN_MIDI[note.string]);
-  const strIdx = STRINGS_ORDER.indexOf(note.string as ViolinString);
+  // Finger placement — draw all simultaneous chord notes
+  for (const cn of notes) {
+    const semiAbove = Math.max(0, cn.midiNumber - OPEN_MIDI[cn.string]);
+    const strIdx = STRINGS_ORDER.indexOf(cn.string as ViolinString);
+    if (strIdx < 0) continue;
 
-  if (strIdx >= 0) {
     const dotX = stringXs[strIdx];
-    const color = STRING_COLORS[note.string as ViolinString];
+    const color = STRING_COLORS[cn.string as ViolinString];
 
     if (semiAbove === 0) {
-      // Open string — highlight at nut
       ctx.fillStyle = color.fill;
       ctx.globalAlpha = 0.7;
       ctx.beginPath();
       ctx.arc(dotX, fbTop + nutHeight / 2 + 2, 12, 0, Math.PI * 2);
       ctx.fill();
       ctx.globalAlpha = 1;
-
       ctx.fillStyle = "#f5e6c8";
       ctx.font = "bold 14px sans-serif";
       ctx.textAlign = "center";
@@ -351,7 +351,6 @@ function drawVerticalFingerboard(ctx: CanvasRenderingContext2D, note: GameNote, 
       const clampedSemi = Math.min(semiAbove, MAX_SEMITONES);
       const dotY = playableTop + (clampedSemi / MAX_SEMITONES) * playableHeight;
 
-      // Glow
       ctx.shadowColor = color.glow;
       ctx.shadowBlur = 18;
       ctx.fillStyle = color.fill;
@@ -361,19 +360,17 @@ function drawVerticalFingerboard(ctx: CanvasRenderingContext2D, note: GameNote, 
       ctx.shadowBlur = 0;
       ctx.shadowColor = "transparent";
 
-      // Border
       ctx.strokeStyle = "rgba(230,215,180,0.4)";
       ctx.lineWidth = 1.5;
       ctx.beginPath();
       ctx.arc(dotX, dotY, 14, 0, Math.PI * 2);
       ctx.stroke();
 
-      // Finger number
       ctx.fillStyle = "#f5e6c8";
       ctx.font = "bold 15px sans-serif";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.fillText(String(note.finger), dotX, dotY);
+      ctx.fillText(String(cn.finger), dotX, dotY);
     }
   }
 
@@ -420,7 +417,8 @@ export function drawLeftPanel(
   notation: NotationMode = "abc",
   surroundingNotes?: GameNote[],
   showFingers = true,
-  activePositions: number[] = []
+  activePositions: number[] = [],
+  chordNotes: GameNote[] = []
 ) {
   const displayNote = activeNote ?? hintNote;
 
@@ -453,8 +451,9 @@ export function drawLeftPanel(
     ctx.font = pos > 1 ? "bold 13px sans-serif" : "12px sans-serif";
     ctx.fillText(`${posLabel} Position`, cx, 92);
 
-    // Vertical fingerboard
-    drawVerticalFingerboard(ctx, displayNote, notation, isHint ? null : hintNote);
+    // Vertical fingerboard — show all chord notes, or just the display note
+    const fbNotes = chordNotes.length > 0 ? chordNotes : [displayNote];
+    drawVerticalFingerboard(ctx, fbNotes, notation, isHint ? null : hintNote);
 
     // Position legend
     _drawPositionLegend(ctx, activePositions);
@@ -717,6 +716,66 @@ export function drawSlurArcs(ctx: CanvasRenderingContext2D, notes: GameNote[]) {
       slurStartNote = null;
     }
     if (note.slurStart) slurStartNote = note;
+  }
+}
+
+/** Draw horizontal connector lines between notes that start simultaneously (chords / double stops).
+ *  Call BEFORE drawNote so the note circles overlap the line, showing only the gap between them. */
+export function drawChordConnectors(ctx: CanvasRenderingContext2D, notes: GameNote[]) {
+  const EPSILON = 0.025; // 25 ms tolerance for "simultaneous"
+  const FADE_TOP = 60;
+  const FADE_FULL = HIT_LINE_Y - 120;
+
+  // Bucket visible non-passed notes by start time
+  const buckets = new Map<number, GameNote[]>();
+  for (const note of notes) {
+    if (note.state === "passed") continue;
+    if (note.y + NOTE_RADIUS < 0 || note.y > HIT_LINE_Y + NOTE_RADIUS) continue;
+    let matched = false;
+    for (const [key, bucket] of buckets) {
+      if (Math.abs(key - note.startTimeSec) < EPSILON) {
+        bucket.push(note);
+        matched = true;
+        break;
+      }
+    }
+    if (!matched) buckets.set(note.startTimeSec, [note]);
+  }
+
+  for (const group of buckets.values()) {
+    if (group.length < 2) continue;
+
+    const sorted = [...group].sort((a, b) => a.lane - b.lane);
+    const isActive = group.some((n) => n.state === "active");
+    const refY = sorted[0].y;
+
+    // Opacity mirrors the note fade logic but slightly stronger so the connector is visible
+    let alpha: number;
+    if (isActive) {
+      alpha = 0.9;
+    } else {
+      alpha = refY <= FADE_TOP ? 0.25
+            : refY >= FADE_FULL ? 0.75
+            : 0.25 + 0.5 * ((refY - FADE_TOP) / (FADE_FULL - FADE_TOP));
+    }
+
+    const x1 = LEFT_PANEL_WIDTH + sorted[0].lane * LANE_WIDTH + LANE_WIDTH / 2;
+    const x2 = LEFT_PANEL_WIDTH + sorted[sorted.length - 1].lane * LANE_WIDTH + LANE_WIDTH / 2;
+
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.strokeStyle = "rgba(210,180,120,1)";
+    ctx.lineWidth = isActive ? 2.5 : 1.5;
+    ctx.setLineDash(isActive ? [] : [5, 4]);
+    if (isActive) {
+      ctx.shadowColor = "rgba(210,180,120,0.6)";
+      ctx.shadowBlur = 8;
+    }
+    ctx.beginPath();
+    ctx.moveTo(x1, refY);
+    ctx.lineTo(x2, refY);
+    ctx.stroke();
+    ctx.restore();
   }
 }
 
