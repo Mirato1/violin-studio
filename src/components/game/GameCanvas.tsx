@@ -11,6 +11,7 @@ import { drawBackground, drawNote, drawLeftPanel, drawEdgeFades } from '@/lib/ga
 import { saveLocalSong, loadLocalSong, deleteLocalSong } from '@/lib/localSongs'
 import { updateNotes } from '@/lib/game/noteTrack'
 import { CANVAS_WIDTH, CANVAS_HEIGHT, NOTE_RADIUS, LEAD_IN_SEC } from '@/lib/game/constants'
+import { detectSections, getNextSection, type SongSection } from '@/lib/game/sectionDetector'
 import { useAudioEngine } from '@/hooks/useAudioEngine'
 import { useNotation } from '@/contexts/NotationContext'
 import GameControls from './GameControls'
@@ -37,6 +38,11 @@ export default function GameCanvas() {
   const [selectedTrackIndex, setSelectedTrackIndex] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
   const { notation } = useNotation()
+
+  const [nextSection, setNextSection] = useState<SongSection | null>(null)
+  const sectionsRef = useRef<SongSection[]>([])
+  const activePositionsRef = useRef<number[]>([])
+  const nextSectionRef = useRef<SongSection | null>(null)
 
   const notesRef = useRef<GameNote[]>([])
   const songRef = useRef<MappedSong | null>(null)
@@ -107,7 +113,14 @@ export default function GameCanvas() {
             drawNote(ctx, note, showFingersRef.current, notationRef.current)
           }
           drawEdgeFades(ctx)
-          drawLeftPanel(ctx, activeNote, hintNote, notationRef.current, surroundingNotes, showFingersRef.current)
+          drawLeftPanel(ctx, activeNote, hintNote, notationRef.current, surroundingNotes, showFingersRef.current, activePositionsRef.current)
+
+          // Update upcoming section overlay
+          const upcoming = getNextSection(sectionsRef.current, currentTimeRef.current)
+          if (upcoming !== nextSectionRef.current) {
+            nextSectionRef.current = upcoming
+            setNextSection(upcoming)
+          }
         }
       }
     }
@@ -138,6 +151,12 @@ export default function GameCanvas() {
       notesRef.current = notes
       songRef.current = song
       setCurrentSong(song)
+
+      const allPositions = [...new Set(song.notes.map((n) => n.position ?? 1))]
+      activePositionsRef.current = allPositions.some((p) => p > 1) ? allPositions : []
+      sectionsRef.current = detectSections(song.notes, song.durationSec)
+      nextSectionRef.current = null
+      setNextSection(null)
     },
     [audio],
   )
@@ -432,7 +451,7 @@ export default function GameCanvas() {
       )}
 
       {/* Canvas area */}
-      <div className='flex-1 min-h-0 flex items-center justify-center overflow-hidden'>
+      <div className='flex-1 min-h-0 relative flex items-center justify-center overflow-hidden'>
         <canvas
           ref={canvasRef}
           width={CANVAS_WIDTH}
@@ -440,6 +459,13 @@ export default function GameCanvas() {
           className='block'
           style={{ height: '100%', width: 'auto', maxWidth: '100%' }}
         />
+        {nextSection && (
+          <div className='absolute top-3 right-3 w-[180px] bg-card/90 border border-border rounded-lg p-3 shadow-lg backdrop-blur-sm pointer-events-none'>
+            <p className='text-[10px] text-muted-foreground uppercase tracking-widest mb-1'>Upcoming Section</p>
+            <p className='text-sm font-semibold'>{nextSection.name}</p>
+            <p className='text-xs text-muted-foreground'>{nextSection.noteCount} notes</p>
+          </div>
+        )}
       </div>
 
       {/* Unified bottom bar: controls | progress | song selector */}
@@ -466,6 +492,7 @@ export default function GameCanvas() {
         />
         <div className='h-5 border-l border-border' />
         <SongSelector
+          currentSongTitle={currentSong?.title ?? ''}
           onFileUpload={handleFileUpload}
           onSelectSong={handleLoadSavedSong}
           onDeleteSong={handleDeleteSong}

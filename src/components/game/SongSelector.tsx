@@ -11,7 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Music2, Trash2, Upload } from "lucide-react";
+import { ListMusic, Trash2, Upload } from "lucide-react";
 import { listLocalSongs, type LocalSongMeta } from "@/lib/localSongs";
 import {
   Dialog,
@@ -30,6 +30,7 @@ interface SavedSong {
 }
 
 interface SongSelectorProps {
+  currentSongTitle: string;
   onFileUpload: (file: File) => Promise<string | undefined>;
   onSelectSong: (songId: string) => void;
   onDeleteSong: (songId: string) => Promise<void>;
@@ -40,6 +41,7 @@ interface SongSelectorProps {
 }
 
 export default function SongSelector({
+  currentSongTitle,
   onFileUpload,
   onSelectSong,
   onDeleteSong,
@@ -53,6 +55,7 @@ export default function SongSelector({
   const [uploading, setUploading] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [changeSongOpen, setChangeSongOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const refreshSongs = useCallback(() => {
@@ -93,32 +96,28 @@ export default function SongSelector({
     }
   };
 
+  const handleSongSelect = (songId: string) => {
+    onSelectSong(songId);
+    setChangeSongOpen(false);
+  };
+
   return (
     <TooltipProvider delayDuration={300}>
       <div className="flex flex-wrap items-center gap-3">
-        <div className="flex items-center gap-2 text-muted-foreground">
-          <Music2 className="size-4" />
-          <span className="text-xs font-medium">Song</span>
+        {/* NOW PLAYING */}
+        <div className="flex flex-col min-w-0">
+          <span className="text-[10px] text-muted-foreground uppercase tracking-widest leading-none mb-0.5">Now Playing</span>
+          <span className="text-sm font-semibold truncate max-w-[200px]">{currentSongTitle || "—"}</span>
         </div>
 
-        <Select value={selectedSongId} onValueChange={onSelectSong}>
-          <SelectTrigger className="w-[240px]">
-            <SelectValue placeholder="Select a song" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="twinkle">Twinkle Twinkle Little Star</SelectItem>
-            {songs.map((s) => (
-              <SelectItem key={s._id} value={s._id}>
-                {s.title}
-              </SelectItem>
-            ))}
-            {localSongs.map((s) => (
-              <SelectItem key={s.id} value={s.id}>
-                {s.title} (local)
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => { refreshSongs(); setChangeSongOpen(true); }}
+        >
+          <ListMusic className="size-4 mr-1.5" />
+          Change Song
+        </Button>
 
         {selectedSongId !== "twinkle" && (
           <Tooltip>
@@ -184,6 +183,42 @@ export default function SongSelector({
         />
       </div>
 
+      {/* Change Song Dialog */}
+      <Dialog open={changeSongOpen} onOpenChange={setChangeSongOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Select Song</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-1 max-h-[400px] overflow-y-auto pr-1">
+            <button
+              onClick={() => handleSongSelect("twinkle")}
+              className={`w-full text-left px-3 py-2 rounded-md text-sm hover:bg-accent transition-colors ${selectedSongId === "twinkle" ? "bg-accent font-semibold" : ""}`}
+            >
+              Twinkle Twinkle Little Star
+            </button>
+            {songs.map((s) => (
+              <button
+                key={s._id}
+                onClick={() => handleSongSelect(s._id)}
+                className={`w-full text-left px-3 py-2 rounded-md text-sm hover:bg-accent transition-colors ${selectedSongId === s._id ? "bg-accent font-semibold" : ""}`}
+              >
+                {s.title}
+              </button>
+            ))}
+            {localSongs.map((s) => (
+              <button
+                key={s.id}
+                onClick={() => handleSongSelect(s.id)}
+                className={`w-full text-left px-3 py-2 rounded-md text-sm hover:bg-accent transition-colors ${selectedSongId === s.id ? "bg-accent font-semibold" : ""}`}
+              >
+                {s.title} <span className="text-muted-foreground text-xs">(local)</span>
+              </button>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <DialogContent showCloseButton={false} className="max-w-sm">
           <DialogHeader>

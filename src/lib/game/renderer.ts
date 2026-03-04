@@ -14,6 +14,7 @@ import {
 const STRINGS_ORDER: ViolinString[] = ["G", "D", "A", "E"];
 
 const POSITION_COLORS: Record<number, string> = {
+  1: "rgba(220,180,60,1)",
   2: "rgba(100,220,220,1)",
   3: "rgba(255,160,60,1)",
   4: "rgba(180,120,255,1)",
@@ -258,7 +259,7 @@ function drawVerticalFingerboard(ctx: CanvasRenderingContext2D, note: GameNote, 
   ctx.save();
 
   // Fingerboard background
-  ctx.fillStyle = "rgba(50, 38, 18, 0.6)";
+  ctx.fillStyle = "rgba(70, 52, 24, 0.85)";
   ctx.beginPath();
   ctx.roundRect(fbLeft, fbTop, fbWidth, fbHeight, 8);
   ctx.fill();
@@ -284,7 +285,7 @@ function drawVerticalFingerboard(ctx: CanvasRenderingContext2D, note: GameNote, 
   }
 
   // Semitone markers (horizontal lines)
-  ctx.strokeStyle = "rgba(200, 185, 150, 0.06)";
+  ctx.strokeStyle = "rgba(200, 185, 150, 0.22)";
   ctx.lineWidth = 1;
   for (let s = 1; s <= MAX_SEMITONES; s++) {
     const y = playableTop + (s / MAX_SEMITONES) * playableHeight;
@@ -302,7 +303,7 @@ function drawVerticalFingerboard(ctx: CanvasRenderingContext2D, note: GameNote, 
     const thickness = [3, 2.5, 1.8, 1.2][i];
 
     ctx.strokeStyle = color.faded;
-    ctx.globalAlpha = 0.45;
+    ctx.globalAlpha = 0.75;
     ctx.lineWidth = thickness;
     ctx.beginPath();
     ctx.moveTo(sx, fbTop + nutHeight + 2);
@@ -415,7 +416,8 @@ export function drawLeftPanel(
   hintNote: GameNote | null,
   notation: NotationMode = "abc",
   surroundingNotes?: GameNote[],
-  showFingers = true
+  showFingers = true,
+  activePositions: number[] = []
 ) {
   const displayNote = activeNote ?? hintNote;
 
@@ -434,29 +436,25 @@ export function drawLeftPanel(
     ctx.textBaseline = "middle";
     ctx.fillText(toNotationFull(displayNote.noteName, notation), cx, 35);
 
-    // String + Finger
-    const fingerText = displayNote.finger === 0 ? "Open" : `Finger ${displayNote.finger}`;
-    ctx.font = "14px sans-serif";
-    ctx.fillStyle = color.fill;
-    ctx.fillText(
-      `${stringToNotation(displayNote.string, notation)} String`,
-      cx, 65
-    );
-    ctx.fillStyle = "rgba(230,215,180,0.7)";
-    ctx.fillText(`\u00B7  ${fingerText}`, cx, 82);
+    // String + Finger — single compact line: "A STRING • FINGER 1"
+    const fingerLabel = displayNote.finger === 0 ? "OPEN" : `FINGER ${displayNote.finger}`;
+    const stringLabel = `${stringToNotation(displayNote.string, notation).toUpperCase()} STRING`;
+    ctx.font = "bold 11px sans-serif";
+    ctx.fillStyle = "rgba(230,215,180,0.65)";
+    ctx.fillText(`${stringLabel}  \u2022  ${fingerLabel}`, cx, 62);
 
     // Position — color-coded to match ring colors
     const pos = displayNote.position ?? 1;
     const posLabel = POS_NAMES[pos] ?? `${pos}th`;
     ctx.fillStyle = pos > 1 ? (POSITION_COLORS[pos] ?? "rgba(200,200,200,0.9)") : "rgba(230,215,180,0.35)";
-    ctx.font = pos > 1 ? "bold 13px sans-serif" : "12px sans-serif";
-    ctx.fillText(`${posLabel} pos`, cx, 99);
+    ctx.font = pos > 1 ? "bold 12px sans-serif" : "11px sans-serif";
+    ctx.fillText(`${posLabel} Position`, cx, 76);
 
     // Vertical fingerboard
     drawVerticalFingerboard(ctx, displayNote, notation, isHint ? null : hintNote);
 
-    // Position legend (always visible at bottom of panel)
-    _drawPositionLegend(ctx);
+    // Position legend
+    _drawPositionLegend(ctx, activePositions);
 
     // Note sequence strip
     if (surroundingNotes && surroundingNotes.length > 0) {
@@ -473,7 +471,7 @@ export function drawLeftPanel(
     ctx.fillText("Press Play", LEFT_PANEL_WIDTH / 2, CANVAS_HEIGHT / 2 - 10);
     ctx.fillText("to start", LEFT_PANEL_WIDTH / 2, CANVAS_HEIGHT / 2 + 12);
 
-    _drawPositionLegend(ctx);
+    _drawPositionLegend(ctx, activePositions);
 
     if (surroundingNotes && surroundingNotes.length > 0) {
       _drawNoteSequence(ctx, surroundingNotes, null, notation, showFingers);
@@ -583,51 +581,55 @@ function _drawNoteSequence(
   ctx.restore();
 }
 
-function _drawPositionLegend(ctx: CanvasRenderingContext2D) {
-  // 2 columns: [2nd,3rd,4th] left | [5th,6th,7th] right
-  const cols = [
-    [2, 3, 4],
-    [5, 6, 7],
-  ];
-  const colX = [25, 165]; // ringX for each column
-  const startY = CANVAS_HEIGHT - 75;
+function _drawPositionLegend(ctx: CanvasRenderingContext2D, activePositions: number[]) {
+  if (activePositions.length === 0) return;
+
+  const POS_LABELS: Record<number, string> = { 1:"1st", 2:"2nd", 3:"3rd", 4:"4th", 5:"5th", 6:"6th", 7:"7th" };
+  const sorted = [...activePositions].sort((a, b) => a - b);
   const ringR = 7;
   const rowH = 20;
+  const useTwoCols = sorted.length > 3;
+  const nRows = useTwoCols ? Math.ceil(sorted.length / 2) : sorted.length;
+  const headerGap = 20;
+  const totalH = nRows * rowH + headerGap;
+  const startY = CANVAS_HEIGHT - totalH - 8;
 
   ctx.save();
   ctx.globalAlpha = 1;
 
-  // Header centered
+  // Header
   ctx.fillStyle = "rgba(230,215,180,0.35)";
-  ctx.font = "bold 10px sans-serif";
+  ctx.font = "bold 9px sans-serif";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillText("POSITIONS", LEFT_PANEL_WIDTH / 2, startY - 22);
+  ctx.fillText("ACTIVE POSITIONS", LEFT_PANEL_WIDTH / 2, startY);
 
-  cols.forEach((positions, col) => {
+  const colX = useTwoCols ? [25, 165] : [LEFT_PANEL_WIDTH / 2 - 40];
+
+  sorted.forEach((pos, idx) => {
+    const col = useTwoCols ? (idx < nRows ? 0 : 1) : 0;
+    const row = useTwoCols ? (idx < nRows ? idx : idx - nRows) : idx;
     const ringX = colX[col];
-    positions.forEach((pos, row) => {
-      const color = POSITION_COLORS[pos] ?? "rgba(200,200,200,0.85)";
-      const ly = startY + row * rowH;
-      const label = ["2nd","3rd","4th","5th","6th","7th"][pos - 2];
+    const ly = startY + headerGap + row * rowH;
+    const color = POSITION_COLORS[pos] ?? "rgba(200,200,200,0.85)";
+    const label = POS_LABELS[pos] ?? `${pos}th`;
 
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.arc(ringX, ly, ringR, 0, Math.PI * 2);
-      ctx.stroke();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(ringX, ly, ringR, 0, Math.PI * 2);
+    ctx.stroke();
 
-      ctx.fillStyle = color;
-      ctx.font = "bold 9px sans-serif";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText(String(pos), ringX, ly);
+    ctx.fillStyle = color;
+    ctx.font = "bold 9px sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(String(pos), ringX, ly);
 
-      ctx.fillStyle = "rgba(230,215,180,0.7)";
-      ctx.font = "11px sans-serif";
-      ctx.textAlign = "left";
-      ctx.fillText(label, ringX + ringR + 5, ly);
-    });
+    ctx.fillStyle = "rgba(230,215,180,0.7)";
+    ctx.font = "11px sans-serif";
+    ctx.textAlign = "left";
+    ctx.fillText(label, ringX + ringR + 5, ly);
   });
 
   ctx.restore();
