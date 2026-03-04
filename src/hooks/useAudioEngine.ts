@@ -32,6 +32,7 @@ export function useAudioEngine() {
 
   const pause = useCallback(() => {
     Tone.getTransport().pause();
+    engineRef.current?.synth.releaseAll();
   }, []);
 
   const stop = useCallback(() => {

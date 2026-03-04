@@ -172,18 +172,26 @@ export default function GameCanvas() {
     }
   }, [status, audio]);
 
-  // Global spacebar → play/pause (ignores when focused on inputs)
+  // Global keyboard shortcuts (Space = play/pause, ArrowLeft/Right = seek ±5s)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.code !== "Space") return;
       const target = e.target as HTMLElement;
       if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT") return;
-      e.preventDefault();
-      handlePlayPause();
+
+      if (e.code === "Space") {
+        e.preventDefault();
+        handlePlayPause();
+      } else if (e.code === "ArrowLeft" || e.code === "ArrowRight") {
+        e.preventDefault();
+        const delta = e.code === "ArrowRight" ? 5 : -5;
+        const newTime = Math.max(0, currentTimeRef.current + delta);
+        currentTimeRef.current = newTime;
+        audio.seekTo(newTime, speedRef.current);
+      }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [handlePlayPause]);
+  }, [handlePlayPause, audio]);
 
   // Restart
   const handleRestart = useCallback(() => {
