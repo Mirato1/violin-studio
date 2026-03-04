@@ -8,10 +8,10 @@ import { parseMidi } from '@/lib/midi/parser'
 import type { MidiFile } from '@/lib/midi/types'
 import { mapMidiToViolin, getTrackInfo, type MappedSong, type TrackInfo } from '@/lib/midi/mapper'
 import { drawBackground, drawNote, drawLeftPanel, drawEdgeFades, drawSlurArcs } from '@/lib/game/renderer'
-import { saveLocalSong, loadLocalSong, deleteLocalSong } from '@/lib/localSongs'
+import { saveLocalSong, loadLocalSong, deleteLocalSong, listLocalSongs } from '@/lib/localSongs'
 import { updateNotes } from '@/lib/game/noteTrack'
 import { CANVAS_WIDTH, CANVAS_HEIGHT, NOTE_RADIUS, LEAD_IN_SEC } from '@/lib/game/constants'
-import { detectSections, getNextSection, type SongSection } from '@/lib/game/sectionDetector'
+
 import { useAudioEngine } from '@/hooks/useAudioEngine'
 import { useNotation } from '@/contexts/NotationContext'
 import { Music, Gamepad2 } from 'lucide-react'
@@ -24,6 +24,21 @@ import ScoreView from './ScoreView'
 function deepCloneNotes(notes: GameNote[]): GameNote[] {
   return notes.map((n) => ({ ...n }))
 }
+
+function formatDuration(sec: number): string {
+  const m = Math.floor(sec / 60)
+  const s = Math.floor(sec % 60)
+  return `${m}:${s.toString().padStart(2, '0')}`
+}
+
+const PLAYLIST_THUMB_COLORS = [
+  'bg-green-900',
+  'bg-blue-900',
+  'bg-amber-900',
+  'bg-red-900',
+  'bg-purple-900',
+  'bg-teal-900',
+]
 
 export default function GameCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -43,10 +58,13 @@ export default function GameCanvas() {
   const [view, setView] = useState<'game' | 'score'>('game')
   const { notation } = useNotation()
 
-  const [nextSection, setNextSection] = useState<SongSection | null>(null)
-  const sectionsRef = useRef<SongSection[]>([])
   const activePositionsRef = useRef<number[]>([])
-  const nextSectionRef = useRef<SongSection | null>(null)
+  const [playlist, setPlaylist] = useState<{ id: string; title: string; durationSec?: number }[]>([])
+  const [playlistIndex, setPlaylistIndex] = useState(0)
+  const playlistRef = useRef<{ id: string; title: string; durationSec?: number }[]>([])
+  const playlistIndexRef = useRef(0)
+  const autoPlayAfterLoadRef = useRef(false)
+  const [autoAdvanceTo, setAutoAdvanceTo] = useState<string | null>(null)
 
   const notesRef = useRef<GameNote[]>([])
   const songRef = useRef<MappedSong | null>(null)
@@ -121,21 +139,21 @@ export default function GameCanvas() {
           drawSlurArcs(ctx, notes)
           drawLeftPanel(ctx, activeNote, hintNote, notationRef.current, surroundingNotes, showFingersRef.current, activePositionsRef.current)
 
-          // Update upcoming section overlay
-          const upcoming = getNextSection(sectionsRef.current, currentTimeRef.current)
-          if (upcoming !== nextSectionRef.current) {
-            nextSectionRef.current = upcoming
-            setNextSection(upcoming)
-          }
         }
       }
     }
 
-    // Auto-stop at end (runs in both modes)
+    // Auto-stop at end — advance playlist if available
     if (statusRef.current === 'playing' && song && currentTimeRef.current >= song.durationSec + 1) {
-      audio.stop()
-      setStatus('idle')
-      currentTimeRef.current = -LEAD_IN_SEC
+      const nextIdx = playlistIndexRef.current + 1
+      if (nextIdx < playlistRef.current.length) {
+        autoPlayAfterLoadRef.current = true
+        setAutoAdvanceTo(playlistRef.current[nextIdx].id)
+      } else {
+        audio.stop()
+        setStatus('idle')
+        currentTimeRef.current = -LEAD_IN_SEC
+      }
     }
 
     animRef.current = requestAnimationFrame(renderFrame)
@@ -160,12 +178,24 @@ export default function GameCanvas() {
 
       const allPositions = [...new Set(song.notes.map((n) => n.position ?? 1))]
       activePositionsRef.current = allPositions.some((p) => p > 1) ? allPositions : []
-      sectionsRef.current = detectSections(song.notes, song.durationSec)
-      nextSectionRef.current = null
-      setNextSection(null)
     },
     [audio],
   )
+
+  // Fetch all songs for playlist
+  const fetchPlaylist = useCallback(async () => {
+    const entries: { id: string; title: string; durationSec?: number }[] = [
+      { id: 'twinkle', title: 'Twinkle Twinkle Little Star', durationSec: TWINKLE_TWINKLE.durationSec },
+    ]
+    try {
+      const res = await fetch('/api/songs')
+      const data = await res.json()
+      if (Array.isArray(data)) entries.push(...data.map((s: { _id: string; title: string; durationSec?: number }) => ({ id: s._id, title: s.title, durationSec: s.durationSec })))
+    } catch { /* DB unavailable */ }
+    entries.push(...listLocalSongs().map((s) => ({ id: s.id, title: s.title, durationSec: s.durationSec })))
+    setPlaylist(entries)
+    playlistRef.current = entries
+  }, [])
 
   // Load demo on mount (only once)
   const mountedRef = useRef(false)
@@ -173,7 +203,32 @@ export default function GameCanvas() {
     if (mountedRef.current) return
     mountedRef.current = true
     loadSong(TWINKLE_TWINKLE)
-  }, [loadSong])
+    fetchPlaylist()
+  }, [loadSong, fetchPlaylist])
+
+  // Auto-advance to next song when current ends
+  useEffect(() => {
+    if (!autoAdvanceTo) return
+    setAutoAdvanceTo(null)
+    handleLoadSavedSong(autoAdvanceTo)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoAdvanceTo])
+
+  // Auto-play after song loads (when advancing playlist)
+  useEffect(() => {
+    if (!autoPlayAfterLoadRef.current || !currentSong) return
+    autoPlayAfterLoadRef.current = false
+    ;(async () => {
+      await audio.init()
+      audio.setVolume(volumeRef.current)
+      audio.setMuted(isMutedRef.current)
+      audio.schedule(notesRef.current, speedRef.current, LEAD_IN_SEC)
+      currentTimeRef.current = -LEAD_IN_SEC
+      audio.seekTo(0, speedRef.current)
+      audio.play()
+      setStatus('playing')
+    })()
+  }, [currentSong, audio])
 
   // Play / Pause
   const handlePlayPause = useCallback(async () => {
@@ -441,6 +496,9 @@ export default function GameCanvas() {
     async (songId: string) => {
       setError(null)
       setSelectedSongId(songId)
+      // Track position in playlist for auto-advance
+      const idx = playlistRef.current.findIndex((s) => s.id === songId)
+      if (idx >= 0) { playlistIndexRef.current = idx; setPlaylistIndex(idx) }
       // Clear track selector for non-MIDI songs
       setAvailableTracks([])
       setSelectedTrackIndex(null)
@@ -523,11 +581,31 @@ export default function GameCanvas() {
             className='block'
             style={{ height: '100%', width: 'auto', maxWidth: '100%' }}
           />
-          {nextSection && view === 'game' && (
-            <div className='absolute top-3 right-3 w-[180px] bg-card/90 border border-border rounded-lg p-3 shadow-lg backdrop-blur-sm pointer-events-none'>
-              <p className='text-[10px] text-muted-foreground uppercase tracking-widest mb-1'>Upcoming Section</p>
-              <p className='text-sm font-semibold'>{nextSection.name}</p>
-              <p className='text-xs text-muted-foreground'>{nextSection.noteCount} notes</p>
+          {view === 'game' && playlist.length > 1 && (
+            <div className='absolute top-3 right-3 w-[220px] bg-card/95 border border-border rounded-lg shadow-lg backdrop-blur-sm overflow-hidden flex flex-col'>
+              <div className='px-3 py-2 border-b border-border flex items-center justify-between shrink-0'>
+                <p className='text-[10px] text-muted-foreground uppercase tracking-widest'>Playlist</p>
+                <p className='text-[10px] text-muted-foreground'>{playlistIndex + 1} / {playlist.length}</p>
+              </div>
+              <div className='overflow-y-auto max-h-[320px]'>
+                {playlist.map((song, idx) => (
+                  <button
+                    key={song.id}
+                    onClick={() => handleLoadSavedSong(song.id)}
+                    className={`flex items-center gap-2 w-full px-2 py-1.5 text-left transition-colors hover:bg-accent/60 ${idx === playlistIndex ? 'bg-accent' : ''}`}
+                  >
+                    <div className={`shrink-0 rounded flex items-center justify-center text-[11px] font-bold text-white/70 ${PLAYLIST_THUMB_COLORS[idx % PLAYLIST_THUMB_COLORS.length]}`} style={{ width: 38, height: 28 }}>
+                      {song.title.charAt(0).toUpperCase()}
+                    </div>
+                    <div className='flex-1 min-w-0'>
+                      <p className={`text-xs leading-tight line-clamp-2 ${idx === playlistIndex ? 'font-semibold' : ''}`}>{song.title}</p>
+                      {song.durationSec != null && (
+                        <p className='text-[10px] text-muted-foreground mt-0.5'>{formatDuration(song.durationSec)}</p>
+                      )}
+                    </div>
+                  </button>
+                ))}
+              </div>
             </div>
           )}
         </div>

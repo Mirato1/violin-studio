@@ -33,8 +33,8 @@ export function drawBackground(ctx: CanvasRenderingContext2D, notation: Notation
   ctx.fillStyle = "rgba(12, 10, 6, 0.95)";
   ctx.fillRect(0, 0, LEFT_PANEL_WIDTH, CANVAS_HEIGHT);
 
-  // Lane backgrounds with subtle gradient (reduced opacity for better note contrast)
-  ctx.globalAlpha = 0.6;
+  // Lane backgrounds with subtle gradient
+  ctx.globalAlpha = 0.8;
   for (let i = 0; i < LANE_COUNT; i++) {
     const s = STRINGS_ORDER[i];
     const color = STRING_COLORS[s];
