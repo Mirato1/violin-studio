@@ -7,7 +7,7 @@ import { findNoteByMidi } from "@/data/violinNotes";
 import { parseMidi } from "@/lib/midi/parser";
 import type { MidiFile } from "@/lib/midi/types";
 import { mapMidiToViolin, getTrackInfo, type MappedSong, type TrackInfo } from "@/lib/midi/mapper";
-import { drawBackground, drawNote, drawLeftPanel } from "@/lib/game/renderer";
+import { drawBackground, drawNote, drawLeftPanel, drawEdgeFades } from "@/lib/game/renderer";
 import { saveLocalSong, loadLocalSong, deleteLocalSong } from "@/lib/localSongs";
 import { updateNotes } from "@/lib/game/noteTrack";
 import { CANVAS_WIDTH, CANVAS_HEIGHT, NOTE_RADIUS } from "@/lib/game/constants";
@@ -97,6 +97,7 @@ export default function GameCanvas() {
           for (const note of notes) {
             drawNote(ctx, note, showFingersRef.current, notationRef.current);
           }
+          drawEdgeFades(ctx);
           drawLeftPanel(ctx, activeNote, hintNote, notationRef.current);
         }
       }
@@ -386,7 +387,7 @@ export default function GameCanvas() {
   );
 
   return (
-    <div className="flex flex-col overflow-hidden" style={{ height: "calc(100vh - 58px)" }}>
+    <div className="flex flex-col overflow-hidden p-2 gap-2" style={{ height: "calc(100vh - 58px)" }}>
       {error && (
         <div className="shrink-0 px-4 py-1 text-sm text-destructive bg-destructive/10 border-b border-destructive/30">
           {error}
@@ -400,7 +401,7 @@ export default function GameCanvas() {
             ref={canvasRef}
             width={CANVAS_WIDTH}
             height={CANVAS_HEIGHT}
-            className="block rounded-lg border border-border"
+            className="block"
             style={{ height: "100%", width: "auto", maxWidth: "100%" }}
           />
         ) : (

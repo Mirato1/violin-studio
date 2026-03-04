@@ -1,6 +1,6 @@
 export const CANVAS_WIDTH = 1600;
 export const CANVAS_HEIGHT = 900;
-export const LEFT_PANEL_WIDTH = 240;
+export const LEFT_PANEL_WIDTH = 300;
 export const HIT_LINE_Y = CANVAS_HEIGHT * 0.85;
 export const OVERLAY_HEIGHT = 0;
 export const PROGRESS_BAR_HEIGHT = 0;

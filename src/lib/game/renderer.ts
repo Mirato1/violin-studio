@@ -117,6 +117,18 @@ export function drawNote(
   // Skip if completely off screen
   if (y + NOTE_RADIUS < 0 || y - note.tailHeight > CANVAS_HEIGHT + NOTE_RADIUS) return;
 
+  // Scale note size by proximity to hit line (far = small, close = full size)
+  let scale = 1.0;
+  if (note.state === "upcoming") {
+    const scaleZoneTop = 40;
+    const scaleZoneFull = HIT_LINE_Y - 100;
+    scale = y <= scaleZoneTop ? 0.45
+          : y >= scaleZoneFull ? 1.0
+          : 0.45 + 0.55 * ((y - scaleZoneTop) / (scaleZoneFull - scaleZoneTop));
+  }
+  const r = NOTE_RADIUS * scale;
+  const fontSize = Math.max(9, Math.round(20 * scale));
+
   ctx.save();
 
   // Determine alpha and colors based on state
@@ -132,14 +144,14 @@ export function drawNote(
   } else {
     fillColor = color.fill;
     ctx.shadowColor = color.fill;
-    ctx.shadowBlur = 6;
+    ctx.shadowBlur = 6 * scale;
   }
 
   ctx.globalAlpha = alpha;
 
   // Draw tail (duration trail) - extends upward from the note
   if (note.tailHeight > 0) {
-    const tailWidth = NOTE_RADIUS * 0.9;
+    const tailWidth = r * 0.9;
     const tailTop = y - note.tailHeight;
 
     const tailGrad = ctx.createLinearGradient(x, tailTop, x, y);
@@ -162,21 +174,21 @@ export function drawNote(
   }
 
   // Draw note circle with radial gradient
-  const grad = ctx.createRadialGradient(x - 3, y - 3, 2, x, y, NOTE_RADIUS);
+  const grad = ctx.createRadialGradient(x - 3 * scale, y - 3 * scale, 2, x, y, r);
   grad.addColorStop(0, note.state === "active" ? "#f5e6c8" : color.glow);
   grad.addColorStop(0.4, fillColor);
   grad.addColorStop(1, note.state === "passed" ? color.faded : color.fill);
 
   ctx.fillStyle = grad;
   ctx.beginPath();
-  ctx.arc(x, y, NOTE_RADIUS, 0, Math.PI * 2);
+  ctx.arc(x, y, r, 0, Math.PI * 2);
   ctx.fill();
 
   // Subtle border
   ctx.strokeStyle = note.state === "active" ? "rgba(230,215,180,0.6)" : note.state === "upcoming" ? "rgba(230,215,180,0.3)" : "rgba(230,215,180,0.15)";
   ctx.lineWidth = 1.5;
   ctx.beginPath();
-  ctx.arc(x, y, NOTE_RADIUS, 0, Math.PI * 2);
+  ctx.arc(x, y, r, 0, Math.PI * 2);
   ctx.stroke();
 
   // Draw text (finger number or note name)
@@ -184,7 +196,7 @@ export function drawNote(
   ctx.shadowColor = "transparent";
   if (note.state !== "passed") {
     ctx.fillStyle = "rgba(0,0,0,0.5)";
-    ctx.font = "bold 20px sans-serif";
+    ctx.font = `bold ${fontSize}px sans-serif`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     const label = showFingers ? String(note.finger) : toNotation(note.noteName.replace(/\d/, ""), notation);
@@ -204,13 +216,13 @@ export function drawNote(
   if (note.state !== "passed" && (note.position ?? 1) > 1) {
     const pos = note.position!;
     const ringColors: Record<number, string> = {
-      2: "rgba(100,220,220,0.85)",
-      3: "rgba(255,160,60,0.85)",
-      4: "rgba(180,120,255,0.85)",
+      2: "rgba(100,220,220,1)",
+      3: "rgba(255,160,60,1)",
+      4: "rgba(180,120,255,1)",
     };
     const ringColor = ringColors[pos] ?? "rgba(200,200,200,0.85)";
-    const ringWidth = 3;
-    const ringR = NOTE_RADIUS + ringWidth + 1;
+    const ringWidth = Math.max(1.5, 3 * scale);
+    const ringR = r + ringWidth + 1;
 
     ctx.shadowBlur = 0;
     ctx.shadowColor = "transparent";
@@ -220,18 +232,20 @@ export function drawNote(
     ctx.arc(x, y, ringR, 0, Math.PI * 2);
     ctx.stroke();
 
-    // Number badge on the ring at top-right
-    const bx = x + ringR * 0.72;
-    const by = y - ringR * 0.72;
-    ctx.fillStyle = "rgba(15,10,5,0.9)";
-    ctx.beginPath();
-    ctx.arc(bx, by, 10, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = ringColor;
-    ctx.font = "bold 11px sans-serif";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(String(pos), bx, by);
+    // Number badge on the ring at top-right (only when big enough to read)
+    if (scale > 0.6) {
+      const bx = x + ringR * 0.72;
+      const by = y - ringR * 0.72;
+      ctx.fillStyle = "rgba(15,10,5,0.9)";
+      ctx.beginPath();
+      ctx.arc(bx, by, 10 * scale, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = ringColor;
+      ctx.font = `bold ${Math.round(11 * scale)}px sans-serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(String(pos), bx, by);
+    }
   }
 
   ctx.restore();
@@ -425,15 +439,23 @@ export function drawLeftPanel(
     ctx.fillStyle = "rgba(230,215,180,0.7)";
     ctx.fillText(`\u00B7  ${fingerText}`, cx, 82);
 
-    // Position
+    // Position — color-coded to match ring colors
     const pos = displayNote.position ?? 1;
     const posLabel = POS_NAMES[pos] ?? `${pos}th`;
-    ctx.fillStyle = pos > 1 ? "rgba(230,215,180,0.6)" : "rgba(230,215,180,0.35)";
-    ctx.font = "12px sans-serif";
+    const posPanelColors: Record<number, string> = {
+      2: "rgba(100,220,220,1)",
+      3: "rgba(255,160,60,1)",
+      4: "rgba(180,120,255,1)",
+    };
+    ctx.fillStyle = pos > 1 ? (posPanelColors[pos] ?? "rgba(200,200,200,0.9)") : "rgba(230,215,180,0.35)";
+    ctx.font = pos > 1 ? "bold 13px sans-serif" : "12px sans-serif";
     ctx.fillText(`${posLabel} pos`, cx, 99);
 
     // Vertical fingerboard
     drawVerticalFingerboard(ctx, displayNote, notation);
+
+    // Position legend (always visible at bottom of panel)
+    _drawPositionLegend(ctx);
 
     ctx.restore();
   } else {
@@ -444,5 +466,77 @@ export function drawLeftPanel(
     ctx.textBaseline = "middle";
     ctx.fillText("Press Play", LEFT_PANEL_WIDTH / 2, CANVAS_HEIGHT / 2 - 10);
     ctx.fillText("to start", LEFT_PANEL_WIDTH / 2, CANVAS_HEIGHT / 2 + 12);
+
+    _drawPositionLegend(ctx);
   }
+}
+
+function _drawPositionLegend(ctx: CanvasRenderingContext2D) {
+  const legendItems = [
+    { color: "rgba(100,220,220,1)",   label: "2nd pos" },
+    { color: "rgba(255,160,60,1)",    label: "3rd pos" },
+    { color: "rgba(180,120,255,1)",   label: "4th pos" },
+  ];
+  const cx = LEFT_PANEL_WIDTH / 2;
+  const startY = CANVAS_HEIGHT - 95;
+  const ringR = 9;
+  const rowH = 26;
+
+  ctx.save();
+  ctx.globalAlpha = 1;
+
+  // Header
+  ctx.fillStyle = "rgba(230,215,180,0.35)";
+  ctx.font = "bold 10px sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText("POSITIONS", cx, startY - 10);
+
+  legendItems.forEach(({ color, label }, i) => {
+    const ly = startY + i * rowH;
+    const ringX = 28;
+
+    // Ring (matches note visual)
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.arc(ringX, ly, ringR, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Number inside
+    ctx.fillStyle = color;
+    ctx.font = `bold 10px sans-serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(String(i + 2), ringX, ly);
+
+    // Label
+    ctx.fillStyle = "rgba(230,215,180,0.7)";
+    ctx.font = "12px sans-serif";
+    ctx.textAlign = "left";
+    ctx.fillText(label, ringX + ringR + 8, ly);
+  });
+  ctx.restore();
+}
+
+export function drawEdgeFades(ctx: CanvasRenderingContext2D) {
+  const lanesX = LEFT_PANEL_WIDTH;
+  const lanesW = CANVAS_WIDTH - LEFT_PANEL_WIDTH;
+  const BG = "#120e08";
+
+  // Top fade — hides notes entering from the top
+  const topGrad = ctx.createLinearGradient(0, 0, 0, 60);
+  topGrad.addColorStop(0, BG);
+  topGrad.addColorStop(1, "rgba(18,14,8,0)");
+  ctx.fillStyle = topGrad;
+  ctx.fillRect(lanesX, 0, lanesW, 60);
+
+  // Bottom fade — hides passed notes exiting below hit line
+  const fadeStart = HIT_LINE_Y + 10;
+  const fadeEnd = HIT_LINE_Y + 65;
+  const botGrad = ctx.createLinearGradient(0, fadeStart, 0, fadeEnd);
+  botGrad.addColorStop(0, "rgba(18,14,8,0)");
+  botGrad.addColorStop(1, BG);
+  ctx.fillStyle = botGrad;
+  ctx.fillRect(lanesX, fadeStart, lanesW, fadeEnd - fadeStart);
 }
