@@ -1,4 +1,4 @@
-import type { ViolinNote } from "@/types/violin";
+import type { ViolinNote, ViolinString } from "@/types/violin";
 
 /**
  * Violin notes from first position through fifth position.
@@ -61,6 +61,68 @@ export const VIOLIN_NOTES: ViolinNote[] = [
   { id: "A6", name: "A6", displayName: "A", midiNumber: 93, string: "E", finger: 4, staffPosition: 19, position: 5 },
 ];
 
+/** Open-string MIDI numbers for each violin string. */
+export const OPEN_MIDI: Record<ViolinString, number> = { G: 55, D: 62, A: 69, E: 76 };
+
+// ── Internal helpers for deriveNoteOnString ───────────────────────────────────
+
+const CHROMATIC_SHARP = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+// Diatonic step (0=C … 6=B) for each semitone in an octave
+const DIATONIC_STEP = [0, 0, 1, 1, 2, 3, 3, 4, 4, 5, 5, 6];
+const SHARP_AT: (undefined | "sharp")[] = [
+  undefined, "sharp", undefined, "sharp", undefined,
+  undefined, "sharp", undefined, "sharp", undefined, "sharp", undefined,
+];
+
+function midiToNoteInfo(midi: number): {
+  name: string; displayName: string; staffPosition: number; accidental?: "sharp" | "flat";
+} {
+  const pc = ((midi % 12) + 12) % 12;
+  const octave = Math.floor(midi / 12) - 1;
+  const letter = CHROMATIC_SHARP[pc];
+  return {
+    name: letter + octave,
+    displayName: letter,
+    staffPosition: (octave - 4) * 7 + DIATONIC_STEP[pc],
+    accidental: SHARP_AT[pc],
+  };
+}
+
+/**
+ * Derive a ViolinNote for any MIDI number on a specific string.
+ * Used as a fallback when `VIOLIN_NOTES` has no entry for that string+MIDI combination.
+ * Position and finger are estimated from semitone distance above the open string.
+ */
+export function deriveNoteOnString(midiNumber: number, str: ViolinString): ViolinNote {
+  const semiAbove = Math.max(0, midiNumber - OPEN_MIDI[str]);
+
+  // Position zones (every 7 semitones covers one position block)
+  let position: number;
+  if (semiAbove <= 7) position = 1;
+  else if (semiAbove <= 14) position = 3;
+  else if (semiAbove <= 21) position = 5;
+  else position = 7;
+
+  const posOffset = ([1, 3, 5, 7].indexOf(position)) * 7;
+  const s = semiAbove - posOffset;
+  // Map semitone-within-position → finger: 0→0, 1-2→1, 3-4→2, 5-6→3, 7+→4
+  const finger = s <= 0 ? 0 : s <= 2 ? 1 : s <= 4 ? 2 : s <= 6 ? 3 : 4;
+
+  const { name, displayName, staffPosition, accidental } = midiToNoteInfo(midiNumber);
+
+  return {
+    id: `derived-${str}-${midiNumber}`,
+    name,
+    displayName,
+    midiNumber,
+    string: str,
+    finger,
+    staffPosition,
+    accidental,
+    position: position === 1 ? undefined : position,
+  };
+}
+
 /** Get all notes for a specific string */
 export function getNotesByString(s: string) {
   return VIOLIN_NOTES.filter((n) => n.string === s);
@@ -69,11 +131,29 @@ export function getNotesByString(s: string) {
 /** Find the best violin note for a MIDI number, optionally preferring a string.
  *  Always prefers 1st position over higher positions (position shifts are harder
  *  than string crossings for beginners). Uses preferString only as a tiebreaker
- *  among same-position matches. */
+ *  among same-position matches.
+ *
+ *  @param requireString  Hard constraint: only match notes on this string.
+ *                        Falls back to `deriveNoteOnString` if no entry exists. */
 export function findNoteByMidi(
   midiNumber: number,
-  preferString?: string
+  preferString?: string,
+  requireString?: string,
 ): ViolinNote | undefined {
+  if (requireString) {
+    const stringMatches = VIOLIN_NOTES.filter(
+      (n) => n.midiNumber === midiNumber && n.string === requireString,
+    );
+    if (stringMatches.length === 0) {
+      return deriveNoteOnString(midiNumber, requireString as ViolinString);
+    }
+    if (stringMatches.length === 1) return stringMatches[0];
+    // Prefer 1st position within the required string
+    const firstPos = stringMatches.filter((n) => !n.position || n.position === 1);
+    if (firstPos.length > 0) return firstPos.sort((a, b) => a.finger - b.finger)[0];
+    return stringMatches[0];
+  }
+
   const matches = VIOLIN_NOTES.filter((n) => n.midiNumber === midiNumber);
   if (matches.length === 0) return undefined;
   if (matches.length === 1) return matches[0];

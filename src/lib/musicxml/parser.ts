@@ -1,4 +1,5 @@
 import { findNoteByMidi } from "@/data/violinNotes";
+import type { ViolinString } from "@/types/violin";
 import type { GameNote } from "@/types/game";
 import type { MappedSong } from "@/lib/midi/mapper";
 
@@ -118,6 +119,8 @@ interface RawNote {
   durationSec: number;
   slurStart: boolean;
   slurEnd: boolean;
+  technicalString?: number;  // MusicXML: 1=E, 2=A, 3=D, 4=G
+  technicalFinger?: number;  // 0=open, 1–4
 }
 
 function parsePartNotes(partEl: Element): { notes: RawNote[]; bpm: number } {
@@ -183,12 +186,18 @@ function parsePartNotes(partEl: Element): { notes: RawNote[]; bpm: number } {
               if (type === "stop") slurEnd = true;
             }
 
+            const technicalEl = child.querySelector("notations > technical");
+            const strEl = technicalEl?.querySelector("string");
+            const finEl = technicalEl?.querySelector("fingering");
+
             rawNotes.push({
               midi,
               startTimeSec,
               durationSec: Math.max(0.05, durSec),
               slurStart,
               slurEnd,
+              technicalString: strEl?.textContent ? Number(strEl.textContent) : undefined,
+              technicalFinger: finEl?.textContent ? Number(finEl.textContent) : undefined,
             });
           }
         }
@@ -225,20 +234,27 @@ export function parseMusicXmlToSong(
 
   const { notes: rawNotes, bpm } = parsePartNotes(partEl);
 
+  const MXML_STRING_TO_VIOLIN: Record<number, ViolinString> = { 1: "E", 2: "A", 3: "D", 4: "G" };
+
   let lastString: string | undefined;
   const notes: GameNote[] = [];
 
   for (let i = 0; i < rawNotes.length; i++) {
     const raw = rawNotes[i];
-    const vNote = findNoteByMidi(raw.midi, lastString);
+    const requireString = raw.technicalString ? MXML_STRING_TO_VIOLIN[raw.technicalString] : undefined;
+    const vNote = findNoteByMidi(raw.midi, lastString, requireString);
     if (!vNote) continue;
+
+    const finalFinger = (requireString && raw.technicalFinger !== undefined)
+      ? raw.technicalFinger
+      : vNote.finger;
 
     notes.push({
       id: `mxml-${i}`,
       midiNumber: raw.midi,
       noteName: vNote.name,
       string: vNote.string,
-      finger: vNote.finger,
+      finger: finalFinger,
       lane: STRING_TO_LANE[vNote.string],
       startTimeSec: raw.startTimeSec,
       durationSec: raw.durationSec,
