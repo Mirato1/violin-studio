@@ -4,25 +4,42 @@ import { useState, useMemo } from "react";
 import type { ViolinString } from "@/types/violin";
 import { VIOLIN_NOTES } from "@/data/violinNotes";
 import { VIOLIN_SCALES } from "@/data/scales";
+import type { PositionNumber } from "@/lib/positions";
 import StringFilter from "@/components/reference/StringFilter";
 import NoteCard from "@/components/reference/NoteCard";
 import FingerboardChart from "@/components/reference/FingerboardChart";
+import PositionGuide from "@/components/reference/PositionGuide";
 import MiniStaff from "@/components/reference/MiniStaff";
 import { useNotation } from "@/contexts/NotationContext";
 import { toNotation, stringToNotation } from "@/lib/notation";
 import { STRING_COLORS } from "@/types/violin";
 import { cn } from "@/lib/utils";
 
+const POSITIONS: { value: PositionNumber; label: string }[] = [
+  { value: 1, label: "1st" },
+  { value: 2, label: "2nd" },
+  { value: 3, label: "3rd" },
+  { value: 4, label: "4th" },
+];
+
 export default function ReferencePage() {
   const [selectedString, setSelectedString] = useState<ViolinString | "all">("all");
+  const [selectedPosition, setSelectedPosition] = useState<PositionNumber>(1);
   const [selectedScaleId, setSelectedScaleId] = useState<string | null>(null);
   const { notation } = useNotation();
 
   const selectedScale = VIOLIN_SCALES.find((s) => s.id === selectedScaleId) ?? null;
-  const highlightedNoteIds = useMemo(
-    () => (selectedScale ? new Set(selectedScale.noteIds) : undefined),
-    [selectedScale]
-  );
+
+  /** Convert scale note IDs → MIDI numbers for position-independent matching */
+  const highlightedMidiNumbers = useMemo(() => {
+    if (!selectedScale) return undefined;
+    const midis = new Set<number>();
+    for (const id of selectedScale.noteIds) {
+      const note = VIOLIN_NOTES.find((n) => n.id === id);
+      if (note) midis.add(note.midiNumber);
+    }
+    return midis;
+  }, [selectedScale]);
 
   const scaleNotes = useMemo(() => {
     if (!selectedScale) return [];
@@ -42,15 +59,40 @@ export default function ReferencePage() {
         <h1 className="gold-text text-3xl font-bold tracking-tight">Reference</h1>
         <div className="gold-divider mt-2 w-24" />
         <p className="mt-2 text-muted-foreground">
-          All first-position notes organized by string — staff notation, names, and finger numbers.
+          All notes organized by string, position, and finger number.
         </p>
       </div>
 
       <StringFilter selected={selectedString} onSelect={setSelectedString} />
 
+      {/* Position selector */}
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="text-sm font-medium text-muted-foreground">Position:</span>
+        <div className="flex gap-2">
+          {POSITIONS.map((pos) => (
+            <button
+              key={pos.value}
+              onClick={() => setSelectedPosition(pos.value)}
+              className={cn(
+                "rounded-md border px-3 py-1.5 text-sm font-semibold transition-all",
+                selectedPosition === pos.value
+                  ? "border-gold/40 bg-primary text-primary-foreground gold-glow"
+                  : "border-transparent bg-secondary text-secondary-foreground hover:border-gold/20 hover:bg-accent"
+              )}
+            >
+              {pos.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Hand placement guide for beginners */}
+      <PositionGuide position={selectedPosition} />
+
       <FingerboardChart
         selectedString={selectedString}
-        highlightedNoteIds={highlightedNoteIds}
+        selectedPosition={selectedPosition}
+        highlightedMidiNumbers={highlightedMidiNumbers}
       />
 
       {/* Scales section */}

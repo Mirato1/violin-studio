@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import type { TrackInfo } from "@/lib/midi/mapper";
 import {
   Select,
@@ -10,6 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Music2, Trash2, Upload } from "lucide-react";
 
 interface SavedSong {
   _id: string;
@@ -80,67 +82,90 @@ export default function SongSelector({
   };
 
   return (
-    <div className="flex flex-wrap items-center gap-3">
-      <Select value={selectedSongId} onValueChange={onSelectSong}>
-        <SelectTrigger className="w-[260px]">
-          <SelectValue placeholder="Select a song" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="twinkle">Twinkle Twinkle Little Star</SelectItem>
-          {songs.map((s) => (
-            <SelectItem key={s._id} value={s._id}>
-              {s.title}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+    <TooltipProvider delayDuration={300}>
+      <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-card/50 px-4 py-2.5">
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <Music2 className="size-4" />
+          <span className="text-xs font-medium">Song</span>
+        </div>
 
-      {selectedSongId !== "twinkle" && (
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-8 px-2 text-destructive hover:text-destructive"
-          onClick={handleDelete}
-          disabled={deleting}
-          aria-label="Delete song"
-        >
-          {deleting ? "..." : "\u2715"}
-        </Button>
-      )}
-
-      {availableTracks.length > 1 && selectedTrackIndex !== null && (
-        <Select
-          value={String(selectedTrackIndex)}
-          onValueChange={(v) => onTrackChange(Number(v))}
-        >
-          <SelectTrigger className="w-[220px]">
-            <SelectValue placeholder="Select track" />
+        <Select value={selectedSongId} onValueChange={onSelectSong}>
+          <SelectTrigger className="w-[240px]">
+            <SelectValue placeholder="Select a song" />
           </SelectTrigger>
           <SelectContent>
-            {availableTracks.map((t) => (
-              <SelectItem key={t.index} value={String(t.index)}>
-                {t.name} ({t.noteCount} notes){t.isBestGuess ? " \u2605" : ""}
+            <SelectItem value="twinkle">Twinkle Twinkle Little Star</SelectItem>
+            {songs.map((s) => (
+              <SelectItem key={s._id} value={s._id}>
+                {s.title}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
-      )}
 
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => fileInputRef.current?.click()}
-        disabled={uploading}
-      >
-        {uploading ? "Uploading..." : "Upload MIDI"}
-      </Button>
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept=".mid,.midi"
-        className="hidden"
-        onChange={handleFileChange}
-      />
-    </div>
+        {selectedSongId !== "twinkle" && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                className="text-destructive hover:text-destructive"
+                onClick={handleDelete}
+                disabled={deleting}
+              >
+                <Trash2 className="size-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="top">Delete song</TooltipContent>
+          </Tooltip>
+        )}
+
+        {availableTracks.length > 1 && selectedTrackIndex !== null && (
+          <>
+            <div className="h-6 border-l border-border" />
+            <Select
+              value={String(selectedTrackIndex)}
+              onValueChange={(v) => onTrackChange(Number(v))}
+            >
+              <SelectTrigger className="w-[200px]">
+                <SelectValue placeholder="Select track" />
+              </SelectTrigger>
+              <SelectContent>
+                {availableTracks.map((t) => (
+                  <SelectItem key={t.index} value={String(t.index)}>
+                    {t.name} ({t.noteCount}){t.isBestGuess ? " \u2605" : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </>
+        )}
+
+        <div className="h-6 border-l border-border" />
+
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+            >
+              <Upload className="size-4" />
+              <span className="ml-1.5">{uploading ? "Uploading..." : "Upload"}</span>
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="top">Upload a MIDI file</TooltipContent>
+        </Tooltip>
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".mid,.midi"
+          className="hidden"
+          onChange={handleFileChange}
+        />
+      </div>
+    </TooltipProvider>
   );
 }

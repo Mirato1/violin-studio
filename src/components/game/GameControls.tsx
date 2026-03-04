@@ -3,7 +3,19 @@
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Toggle } from "@/components/ui/toggle";
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import { SPEED_OPTIONS } from "@/types/game";
+import {
+  Play,
+  Pause,
+  RotateCcw,
+  Volume2,
+  VolumeX,
+  Hand,
+  Music,
+  FileMusic,
+  GalleryVerticalEnd,
+} from "lucide-react";
 
 interface GameControlsProps {
   status: "idle" | "playing" | "paused";
@@ -37,80 +49,108 @@ export default function GameControls({
   onViewModeToggle,
 }: GameControlsProps) {
   return (
-    <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-card/50 px-4 py-2.5">
-      {/* Playback */}
-      <div className="flex items-center gap-2">
-        <Button onClick={onPlayPause} variant="default" size="sm">
-          {status === "playing" ? "Pause" : status === "paused" ? "Resume" : "Play"}
-        </Button>
-        <Button onClick={onRestart} variant="outline" size="sm">
-          Restart
-        </Button>
+    <TooltipProvider delayDuration={300}>
+      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card/50 px-3 py-2">
+        {/* Playback */}
+        <div className="flex items-center gap-1">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button onClick={onPlayPause} variant="default" size="icon-sm">
+                {status === "playing" ? <Pause className="size-4" /> : <Play className="size-4" />}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="top">
+              {status === "playing" ? "Pause" : status === "paused" ? "Resume" : "Play"}
+            </TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button onClick={onRestart} variant="ghost" size="icon-sm">
+                <RotateCcw className="size-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="top">Restart</TooltipContent>
+          </Tooltip>
+        </div>
+
+        <div className="h-6 border-l border-border" />
+
+        {/* Speed */}
+        <div className="flex items-center gap-1">
+          <span className="mr-1 text-xs text-muted-foreground">Speed</span>
+          {SPEED_OPTIONS.map((s) => (
+            <Button
+              key={s}
+              variant={speed === s ? "default" : "ghost"}
+              size="xs"
+              onClick={() => onSpeedChange(s)}
+            >
+              {s}x
+            </Button>
+          ))}
+        </div>
+
+        <div className="h-6 border-l border-border" />
+
+        {/* Volume */}
+        <div className="flex items-center gap-2">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button onClick={onMuteToggle} variant="ghost" size="icon-sm">
+                {isMuted ? <VolumeX className="size-4" /> : <Volume2 className="size-4" />}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="top">{isMuted ? "Unmute" : "Mute"}</TooltipContent>
+          </Tooltip>
+          <Slider
+            value={[volume]}
+            onValueChange={([v]) => onVolumeChange(v)}
+            min={0}
+            max={1}
+            step={0.05}
+            className="w-20"
+            disabled={isMuted}
+          />
+        </div>
+
+        <div className="h-6 border-l border-border" />
+
+        {/* Display toggles */}
+        <div className="flex items-center gap-1">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Toggle
+                pressed={showFingers}
+                onPressedChange={onFingersToggle}
+                size="sm"
+                variant="outline"
+              >
+                {showFingers ? <Hand className="size-4" /> : <Music className="size-4" />}
+              </Toggle>
+            </TooltipTrigger>
+            <TooltipContent side="top">
+              {showFingers ? "Showing fingers" : "Showing notes"}
+            </TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Toggle
+                pressed={viewMode === "score"}
+                onPressedChange={onViewModeToggle}
+                size="sm"
+                variant="outline"
+              >
+                {viewMode === "score" ? <FileMusic className="size-4" /> : <GalleryVerticalEnd className="size-4" />}
+              </Toggle>
+            </TooltipTrigger>
+            <TooltipContent side="top">
+              {viewMode === "score" ? "Score view" : "Play along view"}
+            </TooltipContent>
+          </Tooltip>
+        </div>
       </div>
-
-      <div className="h-6 border-l border-border" />
-
-      {/* Speed */}
-      <div className="flex items-center gap-1">
-        <span className="mr-1 text-xs text-muted-foreground">Speed:</span>
-        {SPEED_OPTIONS.map((s) => (
-          <Button
-            key={s}
-            variant={speed === s ? "default" : "outline"}
-            size="sm"
-            className="h-7 px-2 text-xs"
-            onClick={() => onSpeedChange(s)}
-          >
-            {s}x
-          </Button>
-        ))}
-      </div>
-
-      <div className="h-6 border-l border-border" />
-
-      {/* Volume */}
-      <div className="flex items-center gap-2">
-        <button
-          onClick={onMuteToggle}
-          className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-          aria-label="Toggle mute"
-        >
-          {isMuted ? "\uD83D\uDD07" : "\uD83D\uDD0A"}
-        </button>
-        <Slider
-          value={[volume]}
-          onValueChange={([v]) => onVolumeChange(v)}
-          min={0}
-          max={1}
-          step={0.05}
-          className="w-24"
-          disabled={isMuted}
-        />
-      </div>
-
-      <div className="h-6 border-l border-border" />
-
-      {/* Display toggle */}
-      <Toggle
-        pressed={showFingers}
-        onPressedChange={onFingersToggle}
-        size="sm"
-        aria-label="Toggle finger numbers vs note names"
-      >
-        {showFingers ? "Fingers" : "Notes"}
-      </Toggle>
-
-      <div className="h-6 border-l border-border" />
-
-      {/* View mode toggle */}
-      <Toggle
-        pressed={viewMode === "score"}
-        onPressedChange={onViewModeToggle}
-        size="sm"
-        aria-label="Toggle between falling notes and sheet music"
-      >
-        {viewMode === "score" ? "Score" : "Play Along"}
-      </Toggle>
-    </div>
+    </TooltipProvider>
   );
 }

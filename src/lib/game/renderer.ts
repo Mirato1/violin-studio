@@ -6,7 +6,6 @@ import {
   CANVAS_HEIGHT,
   HIT_LINE_Y,
   OVERLAY_HEIGHT,
-  PROGRESS_BAR_HEIGHT,
   NOTE_RADIUS,
   LANE_COUNT,
   LANE_WIDTH,
@@ -25,7 +24,7 @@ export function drawBackground(ctx: CanvasRenderingContext2D, notation: Notation
     const color = STRING_COLORS[s];
     const laneX = i * LANE_WIDTH;
     const laneTop = OVERLAY_HEIGHT;
-    const laneBottom = CANVAS_HEIGHT - PROGRESS_BAR_HEIGHT;
+    const laneBottom = CANVAS_HEIGHT;
 
     const grad = ctx.createLinearGradient(laneX, laneTop, laneX, laneBottom);
     grad.addColorStop(0, color.bg);
@@ -41,7 +40,7 @@ export function drawBackground(ctx: CanvasRenderingContext2D, notation: Notation
   for (let i = 1; i < LANE_COUNT; i++) {
     ctx.beginPath();
     ctx.moveTo(i * LANE_WIDTH, OVERLAY_HEIGHT);
-    ctx.lineTo(i * LANE_WIDTH, CANVAS_HEIGHT - PROGRESS_BAR_HEIGHT);
+    ctx.lineTo(i * LANE_WIDTH, CANVAS_HEIGHT);
     ctx.stroke();
   }
 
@@ -77,13 +76,13 @@ export function drawBackground(ctx: CanvasRenderingContext2D, notation: Notation
     ctx.strokeStyle = color.faded;
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.arc(cx, HIT_LINE_Y, NOTE_RADIUS + 4, 0, Math.PI * 2);
+    ctx.arc(cx, HIT_LINE_Y, NOTE_RADIUS + 5, 0, Math.PI * 2);
     ctx.stroke();
 
     // Inner subtle fill
     ctx.fillStyle = `${color.bg}`;
     ctx.beginPath();
-    ctx.arc(cx, HIT_LINE_Y, NOTE_RADIUS + 3, 0, Math.PI * 2);
+    ctx.arc(cx, HIT_LINE_Y, NOTE_RADIUS + 4, 0, Math.PI * 2);
     ctx.fill();
   }
 }
@@ -117,6 +116,8 @@ export function drawNote(
     alpha = 0.35;
   } else {
     fillColor = color.fill;
+    ctx.shadowColor = color.fill;
+    ctx.shadowBlur = 8;
   }
 
   ctx.globalAlpha = alpha;
@@ -158,7 +159,7 @@ export function drawNote(
   ctx.fill();
 
   // Subtle border
-  ctx.strokeStyle = note.state === "active" ? "rgba(230,215,180,0.6)" : "rgba(230,215,180,0.15)";
+  ctx.strokeStyle = note.state === "active" ? "rgba(230,215,180,0.6)" : note.state === "upcoming" ? "rgba(230,215,180,0.3)" : "rgba(230,215,180,0.15)";
   ctx.lineWidth = 1.5;
   ctx.beginPath();
   ctx.arc(x, y, NOTE_RADIUS, 0, Math.PI * 2);
@@ -170,7 +171,7 @@ export function drawNote(
   if (note.state !== "passed") {
     // Text shadow for legibility
     ctx.fillStyle = "rgba(0,0,0,0.5)";
-    ctx.font = "bold 14px sans-serif";
+    ctx.font = "bold 16px sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     const label = showFingers ? String(note.finger) : toNotation(note.noteName.replace(/\d/, ""), notation);
@@ -179,7 +180,7 @@ export function drawNote(
     ctx.fillText(label, x, y);
   } else {
     ctx.fillStyle = "rgba(230,215,180,0.4)";
-    ctx.font = "bold 13px sans-serif";
+    ctx.font = "bold 14px sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     const label = showFingers ? String(note.finger) : toNotation(note.noteName.replace(/\d/, ""), notation);
@@ -286,6 +287,144 @@ function drawStaffNotation(ctx: CanvasRenderingContext2D, note: GameNote) {
   ctx.stroke();
 }
 
+const OPEN_MIDI: Record<string, number> = { G: 55, D: 62, A: 69, E: 76 };
+const MAX_SEMITONES = 14; // covers up to ~7th position
+
+/** Draw a horizontal fingerboard diagram showing the finger placement */
+function drawFingerboard(ctx: CanvasRenderingContext2D, note: GameNote, notation: NotationMode) {
+  const fbLeft = 540;
+  const fbTop = 12;
+  const fbWidth = 330;
+  const fbHeight = 76;
+  const fbRight = fbLeft + fbWidth;
+  const fbBottom = fbTop + fbHeight;
+  const nutWidth = 4;
+  const playableLeft = fbLeft + nutWidth + 8;
+  const playableRight = fbRight - 8;
+  const playableWidth = playableRight - playableLeft;
+
+  // String Y positions (G=top to E=bottom)
+  const stringPad = 12;
+  const stringSpacing = (fbHeight - 2 * stringPad) / 3;
+  const stringYs = STRINGS_ORDER.map((_, i) => fbTop + stringPad + i * stringSpacing);
+
+  ctx.save();
+
+  // Fingerboard background
+  ctx.fillStyle = "rgba(50, 38, 18, 0.6)";
+  ctx.beginPath();
+  ctx.roundRect(fbLeft, fbTop, fbWidth, fbHeight, 5);
+  ctx.fill();
+
+  // Nut
+  ctx.fillStyle = "rgba(200, 185, 150, 0.5)";
+  ctx.beginPath();
+  ctx.roundRect(fbLeft + 2, fbTop + 4, nutWidth, fbHeight - 8, 1);
+  ctx.fill();
+
+  // Semi-tone markers (subtle vertical lines)
+  ctx.strokeStyle = "rgba(200, 185, 150, 0.06)";
+  ctx.lineWidth = 1;
+  for (let s = 1; s <= MAX_SEMITONES; s++) {
+    const x = playableLeft + (s / MAX_SEMITONES) * playableWidth;
+    ctx.beginPath();
+    ctx.moveTo(x, fbTop + 6);
+    ctx.lineTo(x, fbBottom - 6);
+    ctx.stroke();
+  }
+
+  // Strings (horizontal lines with varying thickness)
+  for (let i = 0; i < 4; i++) {
+    const sy = stringYs[i];
+    const s = STRINGS_ORDER[i];
+    const color = STRING_COLORS[s];
+    const thickness = [2.5, 2, 1.5, 1][i];
+
+    ctx.strokeStyle = color.faded;
+    ctx.globalAlpha = 0.4;
+    ctx.lineWidth = thickness;
+    ctx.beginPath();
+    ctx.moveTo(fbLeft + nutWidth + 2, sy);
+    ctx.lineTo(fbRight - 4, sy);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+
+  // String labels (left of nut)
+  ctx.font = "bold 9px sans-serif";
+  ctx.textAlign = "right";
+  ctx.textBaseline = "middle";
+  for (let i = 0; i < 4; i++) {
+    const s = STRINGS_ORDER[i];
+    ctx.fillStyle = STRING_COLORS[s].faded;
+    ctx.fillText(stringToNotation(s, notation), fbLeft - 5, stringYs[i]);
+  }
+
+  // Finger placement
+  const semiAbove = Math.max(0, note.midiNumber - OPEN_MIDI[note.string]);
+  const strIdx = STRINGS_ORDER.indexOf(note.string as ViolinString);
+
+  if (strIdx >= 0) {
+    const dotY = stringYs[strIdx];
+    const color = STRING_COLORS[note.string as ViolinString];
+
+    if (semiAbove === 0) {
+      // Open string — highlight at nut
+      ctx.fillStyle = color.fill;
+      ctx.globalAlpha = 0.7;
+      ctx.beginPath();
+      ctx.arc(fbLeft + nutWidth / 2 + 2, dotY, 7, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+
+      ctx.fillStyle = "#f5e6c8";
+      ctx.font = "bold 10px sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("O", fbLeft + nutWidth / 2 + 2, dotY);
+    } else {
+      const clampedSemi = Math.min(semiAbove, MAX_SEMITONES);
+      const dotX = playableLeft + (clampedSemi / MAX_SEMITONES) * playableWidth;
+
+      // Glow
+      ctx.shadowColor = color.glow;
+      ctx.shadowBlur = 12;
+      ctx.fillStyle = color.fill;
+      ctx.beginPath();
+      ctx.arc(dotX, dotY, 10, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.shadowColor = "transparent";
+
+      // Border
+      ctx.strokeStyle = "rgba(230,215,180,0.4)";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(dotX, dotY, 10, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Finger number
+      ctx.fillStyle = "#f5e6c8";
+      ctx.font = "bold 12px sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(String(note.finger), dotX, dotY);
+    }
+  }
+
+  // Position label below fingerboard
+  const pos = note.position ?? 1;
+  const posNames: Record<number, string> = { 1: "1st", 2: "2nd", 3: "3rd", 4: "4th", 5: "5th", 6: "6th", 7: "7th" };
+  const posLabel = posNames[pos] ?? `${pos}th`;
+  ctx.fillStyle = pos > 1 ? "rgba(230,215,180,0.6)" : "rgba(230,215,180,0.3)";
+  ctx.font = "10px sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "top";
+  ctx.fillText(`${posLabel} pos`, fbLeft + fbWidth / 2, fbBottom + 3);
+
+  ctx.restore();
+}
+
 export function drawOverlay(
   ctx: CanvasRenderingContext2D,
   activeNote: GameNote | null,
@@ -345,13 +484,18 @@ export function drawOverlay(
     ctx.fillStyle = "rgba(230,215,180,0.7)";
     ctx.fillText(`\u00B7  ${fingerText}`, infoX + 85, row2Y);
 
-    // Position (if not first)
-    if (activeNote.position && activeNote.position > 1) {
-      const posNames: Record<number, string> = { 2: "2nd", 3: "3rd", 4: "4th", 5: "5th", 6: "6th", 7: "7th" };
-      const posText = posNames[activeNote.position] ?? `${activeNote.position}th`;
-      ctx.fillStyle = "rgba(230,215,180,0.5)";
-      ctx.fillText(`\u00B7  ${posText} pos`, infoX + 195, row2Y);
-    }
+    // Separator before fingerboard
+    ctx.strokeStyle = "rgba(210,180,120,0.1)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(525, 10);
+    ctx.lineTo(525, OVERLAY_HEIGHT - 10);
+    ctx.stroke();
+
+    // Fingerboard diagram
+    ctx.save();
+    drawFingerboard(ctx, activeNote, notation);
+    ctx.restore();
   } else {
     // Empty state
     ctx.fillStyle = "rgba(230,215,180,0.3)";
@@ -362,72 +506,3 @@ export function drawOverlay(
   }
 }
 
-export function drawProgressBar(
-  ctx: CanvasRenderingContext2D,
-  currentTime: number,
-  totalDuration: number
-) {
-  const barY = CANVAS_HEIGHT - PROGRESS_BAR_HEIGHT;
-  const progress = totalDuration > 0 ? currentTime / totalDuration : 0;
-  const trackLeft = 10;
-  const trackRight = CANVAS_WIDTH - 20;
-  const trackWidth = trackRight - trackLeft + 10;
-  const trackH = 6;
-  const trackY = barY + (PROGRESS_BAR_HEIGHT - trackH) / 2;
-
-  // Background
-  ctx.fillStyle = "rgba(18,14,8,0.95)";
-  ctx.fillRect(0, barY, CANVAS_WIDTH, PROGRESS_BAR_HEIGHT);
-
-  // Top border
-  ctx.strokeStyle = "rgba(210,180,120,0.08)";
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(0, barY);
-  ctx.lineTo(CANVAS_WIDTH, barY);
-  ctx.stroke();
-
-  // Track background
-  ctx.fillStyle = "rgba(210,180,120,0.1)";
-  ctx.beginPath();
-  ctx.roundRect(trackLeft, trackY, trackWidth, trackH, trackH / 2);
-  ctx.fill();
-
-  // Filled portion with gradient
-  const filledWidth = trackWidth * Math.min(1, progress);
-  if (filledWidth > 0) {
-    const fillGrad = ctx.createLinearGradient(trackLeft, 0, trackLeft + filledWidth, 0);
-    fillGrad.addColorStop(0, "rgba(230,215,180,0.3)");
-    fillGrad.addColorStop(1, "rgba(230,215,180,0.6)");
-    ctx.fillStyle = fillGrad;
-    ctx.beginPath();
-    ctx.roundRect(trackLeft, trackY, filledWidth, trackH, trackH / 2);
-    ctx.fill();
-  }
-
-  // Playhead with glow
-  const headX = trackLeft + trackWidth * Math.min(1, progress);
-  ctx.save();
-  ctx.shadowColor = "rgba(210,180,120,0.6)";
-  ctx.shadowBlur = 6;
-  ctx.fillStyle = "#f5e6c8";
-  ctx.beginPath();
-  ctx.arc(headX, trackY + trackH / 2, 6, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.restore();
-
-  // Time display
-  ctx.fillStyle = "rgba(230,215,180,0.5)";
-  ctx.font = "10px sans-serif";
-  ctx.textAlign = "right";
-  ctx.textBaseline = "middle";
-  const min = Math.floor(currentTime / 60);
-  const sec = Math.floor(currentTime % 60);
-  const tMin = Math.floor(totalDuration / 60);
-  const tSec = Math.floor(totalDuration % 60);
-  ctx.fillText(
-    `${min}:${sec.toString().padStart(2, "0")} / ${tMin}:${tSec.toString().padStart(2, "0")}`,
-    CANVAS_WIDTH - 15,
-    trackY + trackH / 2
-  );
-}

@@ -6,14 +6,15 @@ import { TWINKLE_TWINKLE } from "@/data/twinkleTwinkle";
 import { parseMidi } from "@/lib/midi/parser";
 import type { MidiFile } from "@/lib/midi/types";
 import { mapMidiToViolin, getTrackInfo, type MappedSong, type TrackInfo } from "@/lib/midi/mapper";
-import { drawBackground, drawNote, drawOverlay, drawProgressBar } from "@/lib/game/renderer";
+import { drawBackground, drawNote, drawOverlay } from "@/lib/game/renderer";
 import { updateNotes } from "@/lib/game/noteTrack";
-import { CANVAS_WIDTH, CANVAS_HEIGHT, PROGRESS_BAR_HEIGHT } from "@/lib/game/constants";
+import { CANVAS_WIDTH, CANVAS_HEIGHT } from "@/lib/game/constants";
 import { useAudioEngine } from "@/hooks/useAudioEngine";
 import { useNotation } from "@/contexts/NotationContext";
 import GameControls from "./GameControls";
 import SongSelector from "./SongSelector";
 import ScoreView from "./ScoreView";
+import ProgressBar from "./ProgressBar";
 
 function deepCloneNotes(notes: GameNote[]): GameNote[] {
   return notes.map((n) => ({ ...n }));
@@ -81,7 +82,6 @@ export default function GameCanvas() {
             drawNote(ctx, note, showFingersRef.current, notationRef.current);
           }
           drawOverlay(ctx, activeNote, notationRef.current);
-          drawProgressBar(ctx, currentTimeRef.current, song?.durationSec ?? 0);
         }
       }
     }
@@ -180,24 +180,11 @@ export default function GameCanvas() {
   useEffect(() => { audio.setVolume(volume); }, [volume, audio]);
   useEffect(() => { audio.setMuted(isMuted); }, [isMuted, audio]);
 
-  // Canvas click for progress bar
-  const handleCanvasClick = useCallback(
-    (e: React.MouseEvent<HTMLCanvasElement>) => {
-      const canvas = canvasRef.current;
-      if (!canvas || !songRef.current) return;
-
-      const rect = canvas.getBoundingClientRect();
-      const scaleX = CANVAS_WIDTH / rect.width;
-      const scaleY = CANVAS_HEIGHT / rect.height;
-      const x = (e.clientX - rect.left) * scaleX;
-      const y = (e.clientY - rect.top) * scaleY;
-
-      if (y >= CANVAS_HEIGHT - PROGRESS_BAR_HEIGHT) {
-        const progress = Math.max(0, Math.min(1, (x - 10) / (CANVAS_WIDTH - 20)));
-        const seekTime = progress * songRef.current.durationSec;
-        currentTimeRef.current = seekTime;
-        audio.seekTo(seekTime, speedRef.current);
-      }
+  // Seek from progress bar
+  const handleSeek = useCallback(
+    (time: number) => {
+      currentTimeRef.current = time;
+      audio.seekTo(time, speedRef.current);
     },
     [audio]
   );
@@ -358,7 +345,7 @@ export default function GameCanvas() {
   );
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-3">
       <SongSelector
         onFileUpload={handleFileUpload}
         onSelectSong={handleLoadSavedSong}
@@ -380,8 +367,7 @@ export default function GameCanvas() {
           ref={canvasRef}
           width={CANVAS_WIDTH}
           height={CANVAS_HEIGHT}
-          onClick={handleCanvasClick}
-          className="w-full max-w-4xl cursor-pointer rounded-lg border border-border"
+          className="w-full max-w-4xl rounded-lg border border-border"
         />
       ) : (
         currentSong && (
@@ -392,6 +378,13 @@ export default function GameCanvas() {
           />
         )
       )}
+
+      <ProgressBar
+        getCurrentTime={() => currentTimeRef.current}
+        totalDuration={songRef.current?.durationSec ?? 0}
+        onSeek={handleSeek}
+        status={status}
+      />
 
       <GameControls
         status={status}

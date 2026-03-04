@@ -1,42 +1,33 @@
 "use client";
 
-import type { ViolinNote, ViolinString } from "@/types/violin";
+import { useMemo } from "react";
+import type { ViolinString } from "@/types/violin";
 import { VIOLIN_STRINGS, STRING_COLORS } from "@/types/violin";
-import { VIOLIN_NOTES } from "@/data/violinNotes";
 import { useNotation } from "@/contexts/NotationContext";
 import { type NotationMode, toNotation, stringToNotation } from "@/lib/notation";
+import {
+  type PositionNumber,
+  type PositionNote,
+  getPositionNotes,
+  getOpenStringNote,
+  POSITION_INFO,
+} from "@/lib/positions";
 
 interface FingerboardChartProps {
   selectedString: ViolinString | "all";
-  highlightedNoteIds?: Set<string>;
+  selectedPosition: PositionNumber;
+  highlightedMidiNumbers?: Set<number>;
 }
 
-const OPEN_MIDI: Record<ViolinString, number> = { G: 55, D: 62, A: 69, E: 76 };
 const STRING_WIDTHS: Record<ViolinString, number> = { G: 3, D: 2.5, A: 2, E: 1.5 };
 
-/** Finger groups: each finger covers 1-2 semitone positions */
-const FINGER_GROUPS: { finger: number; offsets: number[] }[] = [
-  { finger: 0, offsets: [0] },
-  { finger: 1, offsets: [1, 2] },
-  { finger: 2, offsets: [3, 4] },
-  { finger: 3, offsets: [5] },
-  { finger: 4, offsets: [6, 7] },
+/** Finger groups for fingered notes (no open string) */
+const FINGER_GROUPS: { finger: number; variants: ("low" | "high" | "single")[] }[] = [
+  { finger: 1, variants: ["low", "high"] },
+  { finger: 2, variants: ["low", "high"] },
+  { finger: 3, variants: ["single"] },
+  { finger: 4, variants: ["low", "high"] },
 ];
-
-/** Build lookup: string → semitone offset → note (first position only) */
-function buildSemitoneMap() {
-  const map: Record<ViolinString, Record<number, ViolinNote>> = { G: {}, D: {}, A: {}, E: {} };
-  for (const note of VIOLIN_NOTES) {
-    if (note.position && note.position !== 1) continue;
-    const offset = note.midiNumber - OPEN_MIDI[note.string];
-    if (offset >= 0 && offset <= 7) {
-      map[note.string][offset] = note;
-    }
-  }
-  return map;
-}
-
-const SEMITONE_MAP = buildSemitoneMap();
 
 function NoteBadge({
   note,
@@ -44,7 +35,7 @@ function NoteBadge({
   dimmed,
   notation,
 }: {
-  note: ViolinNote;
+  note: PositionNote;
   isOpen: boolean;
   dimmed: boolean;
   notation: NotationMode;
@@ -62,21 +53,44 @@ function NoteBadge({
     >
       {toNotation(note.displayName, notation)}
       <span className="ml-0.5 text-[10px] font-normal opacity-60">
-        {note.name.slice(-1)}
+        {note.octave}
       </span>
     </span>
   );
 }
 
-export default function FingerboardChart({ selectedString, highlightedNoteIds }: FingerboardChartProps) {
+export default function FingerboardChart({
+  selectedString,
+  selectedPosition,
+  highlightedMidiNumbers,
+}: FingerboardChartProps) {
   const { notation } = useNotation();
+
+  /** For each string, compute the notes for the selected position */
+  const positionData = useMemo(() => {
+    const data: Record<ViolinString, { open: PositionNote; notes: PositionNote[] }> = {} as never;
+    for (const s of VIOLIN_STRINGS) {
+      data[s] = {
+        open: getOpenStringNote(s),
+        notes: getPositionNotes(s, selectedPosition),
+      };
+    }
+    return data;
+  }, [selectedPosition]);
+
+  /** Find a note by finger + variant for a given string */
+  function findNote(s: ViolinString, finger: number, variant: string): PositionNote | undefined {
+    return positionData[s].notes.find(
+      (n) => n.finger === finger && n.variant === variant
+    );
+  }
 
   return (
     <div className="overflow-x-auto rounded-lg border border-gold/20">
       {/* String headers */}
       <div
         className="grid items-end gap-0 border-b border-amber-200/15 bg-card py-3"
-        style={{ gridTemplateColumns: "3.5rem repeat(4, 1fr)" }}
+        style={{ gridTemplateColumns: "3.5rem repeat(4, 1fr) 2.5rem" }}
       >
         <div />
         {VIOLIN_STRINGS.map((s) => (
@@ -86,6 +100,7 @@ export default function FingerboardChart({ selectedString, highlightedNoteIds }:
             </span>
           </div>
         ))}
+        <div />
       </div>
 
       {/* Nut */}
@@ -98,7 +113,7 @@ export default function FingerboardChart({ selectedString, highlightedNoteIds }:
         {/* Vertical string lines (behind content) */}
         <div
           className="pointer-events-none absolute inset-0 grid"
-          style={{ gridTemplateColumns: "3.5rem repeat(4, 1fr)" }}
+          style={{ gridTemplateColumns: "3.5rem repeat(4, 1fr) 2.5rem" }}
         >
           <div />
           {VIOLIN_STRINGS.map((s) => (
@@ -115,8 +130,62 @@ export default function FingerboardChart({ selectedString, highlightedNoteIds }:
           ))}
         </div>
 
+        {/* Position zone bracket on the right */}
+        <div className="pointer-events-none absolute right-0 top-0 bottom-0 z-20 flex w-10 flex-col items-center justify-center">
+          <div className="flex h-[85%] flex-col items-center">
+            {/* Top cap */}
+            <div className="h-2 w-3 border-t border-r border-amber-200/30 rounded-tr-sm" />
+            {/* Vertical line */}
+            <div className="flex-1 w-px bg-amber-200/30" />
+            {/* Label */}
+            <div
+              className="my-1 -rotate-90 whitespace-nowrap text-[9px] font-bold tracking-wider text-amber-200/50"
+            >
+              {POSITION_INFO[selectedPosition].label.toUpperCase()}
+            </div>
+            {/* Vertical line */}
+            <div className="flex-1 w-px bg-amber-200/30" />
+            {/* Bottom cap */}
+            <div className="h-2 w-3 border-b border-r border-amber-200/30 rounded-br-sm" />
+          </div>
+        </div>
+
         {/* Content */}
         <div className="relative z-10">
+          {/* Open string row (only for 1st position) */}
+          {selectedPosition === 1 && (
+            <div className="mb-4">
+              <div className="flex items-stretch">
+                <div className="relative flex w-14 shrink-0 items-center justify-center">
+                  <span className="relative z-10 flex h-7 w-7 items-center justify-center rounded-full bg-muted/50 text-sm font-bold text-muted-foreground">
+                    0
+                  </span>
+                </div>
+                <div className="flex-1">
+                  <div
+                    className="grid"
+                    style={{ gridTemplateColumns: "repeat(4, 1fr)" }}
+                  >
+                    {VIOLIN_STRINGS.map((s) => {
+                      const note = positionData[s].open;
+                      const isStringActive = selectedString === "all" || selectedString === s;
+                      const isScaleNote = !highlightedMidiNumbers || highlightedMidiNumbers.has(note.midiNumber);
+                      const dimmed = !isStringActive || !isScaleNote;
+
+                      return (
+                        <div key={s} className="flex h-9 items-center justify-center">
+                          <NoteBadge note={note} isOpen dimmed={dimmed} notation={notation} />
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="mt-3 h-px bg-gradient-to-r from-transparent via-amber-100/10 to-transparent" />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Finger groups */}
           {FINGER_GROUPS.map((group, gi) => (
             <div key={group.finger} className={gi > 0 ? "mt-4" : ""}>
               <div className="flex items-stretch">
@@ -125,23 +194,19 @@ export default function FingerboardChart({ selectedString, highlightedNoteIds }:
                   <span className="relative z-10 flex h-7 w-7 items-center justify-center rounded-full bg-muted/50 text-sm font-bold text-muted-foreground">
                     {group.finger}
                   </span>
-                  {group.offsets.length > 1 && (
+                  {group.variants.length > 1 && (
                     <div
                       className="absolute w-px bg-muted-foreground/20"
-                      style={{
-                        right: 10,
-                        top: 4,
-                        bottom: 4,
-                      }}
+                      style={{ right: 10, top: 4, bottom: 4 }}
                     />
                   )}
                 </div>
 
                 {/* Note rows */}
                 <div className="flex-1">
-                  {group.offsets.map((offset, ri) => (
+                  {group.variants.map((variant, ri) => (
                     <div
-                      key={offset}
+                      key={variant}
                       className="grid"
                       style={{
                         gridTemplateColumns: "repeat(4, 1fr)",
@@ -149,21 +214,20 @@ export default function FingerboardChart({ selectedString, highlightedNoteIds }:
                       }}
                     >
                       {VIOLIN_STRINGS.map((s) => {
-                        const note = SEMITONE_MAP[s][offset];
+                        const note = findNote(s, group.finger, variant);
                         if (!note) {
                           return <div key={s} className="flex h-9 items-center justify-center" />;
                         }
 
                         const isStringActive = selectedString === "all" || selectedString === s;
-                        const isScaleNote = !highlightedNoteIds || highlightedNoteIds.has(note.id);
+                        const isScaleNote = !highlightedMidiNumbers || highlightedMidiNumbers.has(note.midiNumber);
                         const dimmed = !isStringActive || !isScaleNote;
-                        const isOpen = offset === 0;
 
                         return (
                           <div key={s} className="flex h-9 items-center justify-center">
                             <NoteBadge
                               note={note}
-                              isOpen={isOpen}
+                              isOpen={false}
                               dimmed={dimmed}
                               notation={notation}
                             />
@@ -173,7 +237,7 @@ export default function FingerboardChart({ selectedString, highlightedNoteIds }:
                     </div>
                   ))}
 
-                  {/* Subtle guide line after finger group (except last) */}
+                  {/* Guide line between finger groups */}
                   {gi < FINGER_GROUPS.length - 1 && (
                     <div className="mt-3 h-px bg-gradient-to-r from-transparent via-amber-100/10 to-transparent" />
                   )}
