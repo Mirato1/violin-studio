@@ -7,7 +7,7 @@ import { findNoteByMidi } from '@/data/violinNotes'
 import { parseMidi } from '@/lib/midi/parser'
 import type { MidiFile } from '@/lib/midi/types'
 import { mapMidiToViolin, getTrackInfo, type MappedSong, type TrackInfo } from '@/lib/midi/mapper'
-import { drawBackground, drawNote, drawLeftPanel, drawEdgeFades, drawSlurArcs, drawChordConnectors } from '@/lib/game/renderer'
+import { drawBackground, drawNote, drawLeftPanel, drawEdgeFades, drawSlurArcs, drawChordConnectors, drawPositionLines } from '@/lib/game/renderer'
 import { saveLocalSong, loadLocalSong, deleteLocalSong, listLocalSongs } from '@/lib/localSongs'
 import { updateNotes } from '@/lib/game/noteTrack'
 import { CANVAS_WIDTH, CANVAS_HEIGHT, NOTE_RADIUS, LEAD_IN_SEC } from '@/lib/game/constants'
@@ -139,6 +139,7 @@ export default function GameCanvas() {
             ? notes.filter((n) => n.state !== 'passed' && Math.abs(n.startTimeSec - displayNote.startTimeSec) < 0.025)
             : []
           drawBackground(ctx, notationRef.current)
+          drawPositionLines(ctx, notes)
           drawChordConnectors(ctx, notes)
           for (const note of notes) {
             drawNote(ctx, note, showFingersRef.current, notationRef.current)

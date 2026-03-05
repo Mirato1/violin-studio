@@ -21,7 +21,8 @@
       "Bash(xargs grep -l \"localSongs\")",
       "Bash(xargs grep -l \"musicxml\\\\|mxl\\\\|upload\")",
       "Bash(NODE_OPTIONS=\"--max-old-space-size=16384\" npx next build)",
-      "Bash(node /tmp/check_e4.js)"
+      "Bash(node /tmp/check_e4.js)",
+      "Bash(xargs grep -l \"Por\\\\|cabeza\")"
     ]
   }
 }

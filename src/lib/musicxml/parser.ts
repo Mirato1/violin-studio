@@ -2,10 +2,14 @@ import { findNoteByMidi } from "@/data/violinNotes";
 import type { ViolinString } from "@/types/violin";
 import type { GameNote } from "@/types/game";
 import type { MappedSong } from "@/lib/midi/mapper";
+import {
+  pickBestCandidate,
+  chooseStartingPosition,
+  smoothPositions,
+  STRING_TO_LANE,
+} from "@/lib/violin/positionScoring";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
-
-const STRING_TO_LANE: Record<string, number> = { G: 0, D: 1, A: 2, E: 3 };
 
 const STEP_TO_SEMITONE: Record<string, number> = {
   C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11,
@@ -236,39 +240,132 @@ export function parseMusicXmlToSong(
 
   const MXML_STRING_TO_VIOLIN: Record<number, ViolinString> = { 1: "E", 2: "A", 3: "D", 4: "G" };
 
+  // Check if any notes have technical annotations
+  const hasTechnical = rawNotes.some(
+    (r) => r.technicalString !== undefined || r.technicalFinger !== undefined
+  );
+
   let lastString: string | undefined;
+  let lastPosition: number;
+
+  // Choose starting position from first ~8 notes when no technical annotations
+  if (!hasTechnical) {
+    const firstMidis: number[] = [];
+    for (let j = 0; j < rawNotes.length && firstMidis.length < 8; j++) {
+      if (rawNotes[j].midi >= MIN_MIDI && rawNotes[j].midi <= MAX_MIDI) {
+        firstMidis.push(rawNotes[j].midi);
+      }
+    }
+    lastPosition = firstMidis.length > 0 ? chooseStartingPosition(firstMidis) : 1;
+  } else {
+    lastPosition = 1;
+  }
+
   const notes: GameNote[] = [];
 
   for (let i = 0; i < rawNotes.length; i++) {
     const raw = rawNotes[i];
-    const requireString = raw.technicalString ? MXML_STRING_TO_VIOLIN[raw.technicalString] : undefined;
-    const vNote = findNoteByMidi(raw.midi, lastString, requireString);
-    if (!vNote) continue;
+    const hasTech = raw.technicalString !== undefined || raw.technicalFinger !== undefined;
 
-    const finalFinger = (requireString && raw.technicalFinger !== undefined)
-      ? raw.technicalFinger
-      : vNote.finger;
+    if (hasTech) {
+      // Path A: Technical annotations present — use existing logic
+      const requireString = raw.technicalString
+        ? MXML_STRING_TO_VIOLIN[raw.technicalString]
+        : undefined;
+      const vNote = findNoteByMidi(raw.midi, lastString, requireString);
+      if (!vNote) continue;
 
-    notes.push({
-      id: `mxml-${i}`,
-      midiNumber: raw.midi,
-      noteName: vNote.name,
-      string: vNote.string,
-      finger: finalFinger,
-      lane: STRING_TO_LANE[vNote.string],
-      startTimeSec: raw.startTimeSec,
-      durationSec: raw.durationSec,
-      y: 0,
-      tailHeight: 0,
-      state: "upcoming",
-      staffPosition: vNote.staffPosition,
-      accidental: vNote.accidental,
-      position: vNote.position,
-      slurStart: raw.slurStart || undefined,
-      slurEnd: raw.slurEnd || undefined,
-    });
+      const finalFinger = (requireString && raw.technicalFinger !== undefined)
+        ? raw.technicalFinger
+        : vNote.finger;
 
-    lastString = vNote.string;
+      notes.push({
+        id: `mxml-${i}`,
+        midiNumber: raw.midi,
+        noteName: vNote.name,
+        string: vNote.string,
+        finger: finalFinger,
+        lane: STRING_TO_LANE[vNote.string],
+        startTimeSec: raw.startTimeSec,
+        durationSec: raw.durationSec,
+        y: 0,
+        tailHeight: 0,
+        state: "upcoming",
+        staffPosition: vNote.staffPosition,
+        accidental: vNote.accidental,
+        position: vNote.position,
+        slurStart: raw.slurStart || undefined,
+        slurEnd: raw.slurEnd || undefined,
+      });
+
+      lastString = vNote.string;
+      lastPosition = vNote.position ?? 1;
+    } else {
+      // Path B: No technical annotations — use position-aware scoring
+      const LOOK_AHEAD = 8;
+      const upcomingMidis: number[] = [];
+      for (let j = i + 1; j < rawNotes.length && upcomingMidis.length < LOOK_AHEAD; j++) {
+        const m = rawNotes[j].midi;
+        if (m >= MIN_MIDI && m <= MAX_MIDI) upcomingMidis.push(m);
+      }
+
+      const best = pickBestCandidate(raw.midi, lastString, lastPosition, upcomingMidis);
+
+      if (!best) {
+        // Fallback: use findNoteByMidi
+        const vNote = findNoteByMidi(raw.midi, lastString);
+        if (!vNote) continue;
+
+        notes.push({
+          id: `mxml-${i}`,
+          midiNumber: raw.midi,
+          noteName: vNote.name,
+          string: vNote.string,
+          finger: vNote.finger,
+          lane: STRING_TO_LANE[vNote.string],
+          startTimeSec: raw.startTimeSec,
+          durationSec: raw.durationSec,
+          y: 0,
+          tailHeight: 0,
+          state: "upcoming",
+          staffPosition: vNote.staffPosition,
+          accidental: vNote.accidental,
+          position: vNote.position,
+          slurStart: raw.slurStart || undefined,
+          slurEnd: raw.slurEnd || undefined,
+        });
+
+        lastString = vNote.string;
+        lastPosition = vNote.position ?? 1;
+      } else {
+        notes.push({
+          id: `mxml-${i}`,
+          midiNumber: raw.midi,
+          noteName: best.name,
+          string: best.string,
+          finger: best.finger,
+          lane: STRING_TO_LANE[best.string],
+          startTimeSec: raw.startTimeSec,
+          durationSec: raw.durationSec,
+          y: 0,
+          tailHeight: 0,
+          state: "upcoming",
+          staffPosition: best.staffPosition,
+          accidental: best.accidental,
+          position: best.position === 1 ? undefined : best.position,
+          slurStart: raw.slurStart || undefined,
+          slurEnd: raw.slurEnd || undefined,
+        });
+
+        lastString = best.string;
+        lastPosition = best.position;
+      }
+    }
+  }
+
+  // Smooth out position alternation blips when no technical annotations
+  if (!hasTechnical) {
+    smoothPositions(notes);
   }
 
   const durationSec =

@@ -120,6 +120,59 @@ export function drawBackground(ctx: CanvasRenderingContext2D, notation: Notation
 
 }
 
+const POS_LINE_LABELS: Record<number, string> = { 1: "1st", 3: "3rd", 4: "4th", 5: "5th", 6: "6th", 7: "7th" };
+
+/** Draw dashed horizontal lines where position changes occur between notes. */
+export function drawPositionLines(
+  ctx: CanvasRenderingContext2D,
+  notes: GameNote[],
+) {
+  const FADE_TOP = 60;
+  const FADE_FULL = HIT_LINE_Y - 120;
+
+  let prevPos = notes.length > 0 ? (notes[0].position ?? 1) : 1;
+
+  for (let i = 1; i < notes.length; i++) {
+    const note = notes[i];
+    const pos = note.position ?? 1;
+    if (pos === prevPos) { continue; }
+
+    // Position changed — draw indicator at this note's y
+    const y = note.y;
+    prevPos = pos;
+
+    // Only draw if visible in play zone
+    if (y < 10 || y > HIT_LINE_Y + 10) continue;
+
+    // Fade opacity like notes do
+    const alpha = y <= FADE_TOP ? 0.2
+      : y >= FADE_FULL ? 0.6
+      : 0.2 + 0.4 * ((y - FADE_TOP) / (FADE_FULL - FADE_TOP));
+
+    const color = POSITION_COLORS[pos] ?? "rgba(200,200,200,0.85)";
+
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([8, 6]);
+    ctx.beginPath();
+    ctx.moveTo(LEFT_PANEL_WIDTH, y);
+    ctx.lineTo(CANVAS_WIDTH, y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Label at left edge
+    const label = POS_LINE_LABELS[pos] ?? `${pos}th`;
+    ctx.font = "bold 11px sans-serif";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "bottom";
+    ctx.fillStyle = color;
+    ctx.fillText(label, LEFT_PANEL_WIDTH + 6, y - 4);
+    ctx.restore();
+  }
+}
+
 export function drawNote(
   ctx: CanvasRenderingContext2D,
   note: GameNote,
