@@ -19,6 +19,7 @@ interface GameControlsProps {
   volume: number;
   isMuted: boolean;
   showFingers: boolean;
+  bpm: number | null;
   onPlayPause: () => void;
   onRestart: () => void;
   onSpeedChange: (speed: number) => void;
@@ -33,6 +34,7 @@ export default function GameControls({
   volume,
   isMuted,
   showFingers,
+  bpm,
   onPlayPause,
   onRestart,
   onSpeedChange,
@@ -70,7 +72,11 @@ export default function GameControls({
 
         {/* Speed */}
         <div className="flex items-center gap-1">
-          <span className="mr-1 text-xs text-muted-foreground hidden sm:inline">Speed</span>
+          {bpm != null && (
+            <span className="mr-1.5 font-mono text-xs text-muted-foreground hidden sm:inline" title="Effective tempo">
+              ♩ = {Math.round(bpm * speed)}
+            </span>
+          )}
           {SPEED_OPTIONS.map((s) => (
             <Button
               key={s}

@@ -240,15 +240,20 @@ export function smoothPositions(notes: GameNote[]): void {
 
       const myPos = notes[i].position ?? 1;
 
-      // Count positions in the surrounding window
+      // Count positions in the surrounding window (only E string notes)
       const counts: Record<number, number> = {};
       const wStart = Math.max(0, i - HALF_WINDOW);
       const wEnd = Math.min(notes.length - 1, i + HALF_WINDOW);
 
+      let windowSize = 0;
       for (let j = wStart; j <= wEnd; j++) {
+        if (notes[j].string !== "E") continue;
         const p = notes[j].position ?? 1;
         counts[p] = (counts[p] ?? 0) + 1;
+        windowSize++;
       }
+
+      if (windowSize < 2) continue;
 
       // Find majority position
       let majorityPos = myPos;
@@ -262,7 +267,6 @@ export function smoothPositions(notes: GameNote[]): void {
       }
 
       // Skip if already in the majority, or majority is not convincing (>50%)
-      const windowSize = wEnd - wStart + 1;
       if (majorityPos === myPos || majorityCount <= windowSize / 2) continue;
 
       // Try to reassign this note to the majority position

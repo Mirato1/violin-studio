@@ -139,11 +139,31 @@ export default function GameCanvas() {
           const chordNotes = displayNote
             ? notes.filter((n) => n.state !== 'passed' && Math.abs(n.startTimeSec - displayNote.startTimeSec) < 0.025)
             : []
+          // Calculate per-note scale to prevent overlap on same lane
+          const noteScales = new Map<GameNote, number>()
+          const laneNotes: GameNote[][] = [[], [], [], []]
+          for (const note of notes) {
+            if (note.state !== 'passed' && note.y + NOTE_RADIUS > 0 && note.y < CANVAS_HEIGHT) {
+              laneNotes[note.lane]?.push(note)
+            }
+          }
+          for (const lane of laneNotes) {
+            lane.sort((a, b) => a.y - b.y)
+            for (let i = 0; i < lane.length; i++) {
+              let minDist = Infinity
+              if (i > 0) minDist = Math.min(minDist, Math.abs(lane[i].y - lane[i - 1].y))
+              if (i < lane.length - 1) minDist = Math.min(minDist, Math.abs(lane[i + 1].y - lane[i].y))
+              if (minDist < 2 * NOTE_RADIUS) {
+                noteScales.set(lane[i], Math.max(0.5, minDist / (2 * NOTE_RADIUS)))
+              }
+            }
+          }
+
           drawBackground(ctx, notationRef.current)
           drawPositionLines(ctx, notes)
           drawChordConnectors(ctx, notes)
           for (const note of notes) {
-            drawNote(ctx, note, showFingersRef.current, notationRef.current)
+            drawNote(ctx, note, showFingersRef.current, notationRef.current, noteScales.get(note) ?? 1)
           }
           drawEdgeFades(ctx)
           drawSlurArcs(ctx, notes)
@@ -263,7 +283,28 @@ export default function GameCanvas() {
     }
   }, [status, audio])
 
-  // Global keyboard shortcuts (Space = play/pause, ArrowLeft/Right = seek ±5s)
+  // Restart — resets to the beginning; if playing, restarts playback immediately
+  const handleRestart = useCallback(async () => {
+    const wasPlaying = statusRef.current === 'playing'
+    audio.stop()
+    currentTimeRef.current = -LEAD_IN_SEC
+    if (songRef.current) {
+      notesRef.current = deepCloneNotes(songRef.current.notes)
+    }
+    if (wasPlaying) {
+      await audio.init()
+      audio.setVolume(volumeRef.current)
+      audio.setMuted(isMutedRef.current)
+      audio.schedule(notesRef.current, speedRef.current, LEAD_IN_SEC)
+      audio.seekTo(0, speedRef.current)
+      audio.play()
+      setStatus('playing')
+    } else {
+      setStatus('idle')
+    }
+  }, [audio])
+
+  // Global keyboard shortcuts (Space = play/pause, R = restart, ArrowLeft/Right = seek ±5s)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement
@@ -272,6 +313,9 @@ export default function GameCanvas() {
       if (e.code === 'Space') {
         e.preventDefault()
         handlePlayPause()
+      } else if (e.code === 'KeyR') {
+        e.preventDefault()
+        handleRestart()
       } else if (e.code === 'ArrowLeft' || e.code === 'ArrowRight') {
         e.preventDefault()
         const delta = e.code === 'ArrowRight' ? 5 : -5
@@ -282,17 +326,7 @@ export default function GameCanvas() {
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [handlePlayPause, audio])
-
-  // Restart
-  const handleRestart = useCallback(() => {
-    audio.stop()
-    currentTimeRef.current = -LEAD_IN_SEC
-    if (songRef.current) {
-      notesRef.current = deepCloneNotes(songRef.current.notes)
-    }
-    setStatus('idle')
-  }, [audio])
+  }, [handlePlayPause, handleRestart, audio])
 
   // Speed change
   const handleSpeedChange = useCallback(
@@ -801,6 +835,7 @@ export default function GameCanvas() {
             volume={volume}
             isMuted={isMuted}
             showFingers={showFingers}
+            bpm={currentSong?.bpm ?? null}
             onPlayPause={handlePlayPause}
             onRestart={handleRestart}
             onSpeedChange={handleSpeedChange}
