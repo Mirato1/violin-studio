@@ -3,9 +3,7 @@ import type { GameNote } from "@/types/game";
 import type { ViolinString } from "@/types/violin";
 import { findNoteByMidi, VIOLIN_NOTES, OPEN_MIDI } from "@/data/violinNotes";
 import {
-  findAllCandidates,
-  scoreCandidate,
-  lookAheadBonus,
+  pickBestCandidate,
   chooseStartingPosition,
   smoothPositions,
   STRING_TO_LANE,
@@ -203,7 +201,7 @@ export function mapMidiToViolin(midi: MidiFile, title: string = "Untitled", trac
     if (clampedMidis[j] !== null) firstMidis.push(clampedMidis[j]!);
   }
 
-  // Map to GameNote with violin assignments using position-aware scoring + look-ahead
+  // Map to GameNote with violin assignments using position-aware scoring
   let lastString: string | undefined;
   let lastPosition = firstMidis.length > 0 ? chooseStartingPosition(firstMidis) : 1;
   const notes: GameNote[] = [];
@@ -213,7 +211,7 @@ export function mapMidiToViolin(midi: MidiFile, title: string = "Untitled", trac
     if (clamped === null) continue;
     const raw = rawNotes[i];
 
-    // Gather the next few MIDI notes for look-ahead scoring
+    // Gather upcoming MIDI notes for string-aware look-ahead
     const LOOK_AHEAD = 8;
     const upcomingMidis: number[] = [];
     for (let j = i + 1; j < rawNotes.length && upcomingMidis.length < LOOK_AHEAD; j++) {
@@ -221,21 +219,8 @@ export function mapMidiToViolin(midi: MidiFile, title: string = "Untitled", trac
       if (m !== null) upcomingMidis.push(m);
     }
 
-    // Find all possible fingerings and pick the best one
-    const candidates = findAllCandidates(clamped);
-    let best: Candidate | undefined;
-
-    if (candidates.length > 0) {
-      let bestScore = -Infinity;
-      for (const c of candidates) {
-        let s = scoreCandidate(c, lastString, lastPosition);
-        // Add look-ahead bonus: prefer positions that work for upcoming notes too
-        if (upcomingMidis.length > 0) {
-          s += lookAheadBonus(c.position, upcomingMidis);
-        }
-        if (s > bestScore) { bestScore = s; best = c; }
-      }
-    }
+    // Find best fingering using position hierarchy + string-aware look-ahead
+    let best: Candidate | undefined = pickBestCandidate(clamped, lastString, lastPosition, upcomingMidis);
 
     // Fallback to original findNoteByMidi if no candidates
     if (!best) {

@@ -66,11 +66,11 @@ export default function GameControls({
           </Tooltip>
         </div>
 
-        <div className="h-6 border-l border-border" />
+        <div className="h-6 border-l border-gold/15" />
 
         {/* Speed */}
         <div className="flex items-center gap-1">
-          <span className="mr-1 text-xs text-muted-foreground">Speed</span>
+          <span className="mr-1 text-xs text-muted-foreground hidden sm:inline">Speed</span>
           {SPEED_OPTIONS.map((s) => (
             <Button
               key={s}
@@ -83,7 +83,7 @@ export default function GameControls({
           ))}
         </div>
 
-        <div className="h-6 border-l border-border" />
+        <div className="h-6 border-l border-gold/15" />
 
         {/* Volume */}
         <div className="flex items-center gap-2">
@@ -101,12 +101,12 @@ export default function GameControls({
             min={0}
             max={1}
             step={0.05}
-            className="w-20"
+            className="w-16 sm:w-20 hidden sm:flex"
             disabled={isMuted}
           />
         </div>
 
-        <div className="h-6 border-l border-border" />
+        <div className="h-6 border-l border-gold/15" />
 
         {/* Display toggles */}
         <div className="flex items-center gap-1">

@@ -103,11 +103,11 @@ export default function SongSelector({
 
   return (
     <TooltipProvider delayDuration={300}>
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-wrap items-center gap-2 sm:gap-3">
         {/* NOW PLAYING */}
         <div className="flex flex-col min-w-0">
-          <span className="text-[10px] text-muted-foreground uppercase tracking-widest leading-none mb-0.5">Now Playing</span>
-          <span className="text-sm font-semibold truncate max-w-[200px]">{currentSongTitle || "—"}</span>
+          <span className="text-[10px] text-muted-foreground uppercase tracking-widest leading-none mb-0.5 hidden sm:block">Now Playing</span>
+          <span className="text-xs sm:text-sm font-semibold truncate max-w-[120px] sm:max-w-[200px]">{currentSongTitle || "—"}</span>
         </div>
 
         <Button
@@ -115,8 +115,8 @@ export default function SongSelector({
           size="sm"
           onClick={() => { refreshSongs(); setChangeSongOpen(true); }}
         >
-          <ListMusic className="size-4 mr-1.5" />
-          Change Song
+          <ListMusic className="size-4 sm:mr-1.5" />
+          <span className="hidden sm:inline">Change Song</span>
         </Button>
 
         {selectedSongId !== "twinkle" && (
@@ -138,12 +138,12 @@ export default function SongSelector({
 
         {availableTracks.length > 1 && selectedTrackIndex !== null && (
           <>
-            <div className="h-6 border-l border-border" />
+            <div className="h-6 border-l border-border hidden sm:block" />
             <Select
               value={String(selectedTrackIndex)}
               onValueChange={(v) => onTrackChange(Number(v))}
             >
-              <SelectTrigger className="w-[200px]">
+              <SelectTrigger className="w-[140px] sm:w-[200px]">
                 <SelectValue placeholder="Select track" />
               </SelectTrigger>
               <SelectContent>
@@ -157,7 +157,7 @@ export default function SongSelector({
           </>
         )}
 
-        <div className="h-6 border-l border-border" />
+        <div className="h-6 border-l border-border hidden sm:block" />
 
         <Tooltip>
           <TooltipTrigger asChild>
@@ -168,7 +168,7 @@ export default function SongSelector({
               disabled={uploading}
             >
               <Upload className="size-4" />
-              <span className="ml-1.5">{uploading ? "Uploading..." : "Upload"}</span>
+              <span className="ml-1.5 hidden sm:inline">{uploading ? "Uploading..." : "Upload"}</span>
             </Button>
           </TooltipTrigger>
           <TooltipContent side="top">Upload a MIDI or MusicXML file</TooltipContent>

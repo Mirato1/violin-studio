@@ -16,7 +16,7 @@ export default function NoteCard({ note }: NoteCardProps) {
   const { notation } = useNotation();
 
   return (
-    <Card className="flex flex-col items-center gap-2 p-4 hover:bg-gold/5">
+    <Card className="flex flex-col items-center gap-2 p-4 transition-transform duration-200 hover:-translate-y-0.5 hover:bg-gold/5">
       <MiniStaff note={note} />
       <div className="text-center">
         <div className="text-lg font-bold">{toNotation(note.displayName, notation)}{note.name.slice(-1)}</div>

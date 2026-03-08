@@ -54,9 +54,9 @@ export default function ReferencePage() {
       : VIOLIN_NOTES.filter((n) => n.string === selectedString);
 
   return (
-    <div className="mx-auto max-w-5xl flex flex-col gap-6 px-4 py-6">
-      <div>
-        <h1 className="gold-text text-3xl font-bold tracking-tight">Reference</h1>
+    <div className="mx-auto max-w-5xl flex flex-col gap-6 px-4 py-8">
+      <div className="animate-fade-in-up">
+        <h1 className="gold-gradient-text text-3xl font-bold tracking-tight">Repertoire</h1>
         <div className="gold-divider mt-2 w-24" />
         <p className="mt-2 text-muted-foreground">
           All notes organized by string, position, and finger number.
@@ -67,8 +67,8 @@ export default function ReferencePage() {
 
       {/* Position selector */}
       <div className="flex flex-wrap items-center gap-3">
-        <span className="text-sm font-medium text-muted-foreground">Position:</span>
-        <div className="flex gap-2">
+        <span className="text-sm font-semibold text-muted-foreground">Position:</span>
+        <div className="flex flex-wrap gap-2">
           {POSITIONS.map((pos) => (
             <button
               key={pos.value}
@@ -159,7 +159,7 @@ export default function ReferencePage() {
         <div className="gold-divider mt-1 w-16" />
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-3 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
         {filteredNotes.map((note) => (
           <NoteCard key={note.id} note={note} />
         ))}

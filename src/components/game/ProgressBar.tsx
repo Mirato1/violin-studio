@@ -110,11 +110,11 @@ export default function ProgressBar({ getCurrentTime, totalDuration, onSeek, sta
 
         {/* Playhead */}
         <div
-          className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 size-3.5 rounded-full"
+          className={`absolute top-1/2 -translate-x-1/2 -translate-y-1/2 size-3.5 rounded-full${status === "playing" ? " animate-playhead-glow" : ""}`}
           style={{
             left: pct,
             background: "oklch(0.78 0.16 85)",
-            boxShadow: "0 0 8px oklch(0.78 0.16 85 / 0.5), 0 0 2px oklch(0.78 0.16 85 / 0.3)",
+            ...(status !== "playing" ? { boxShadow: "0 0 8px oklch(0.78 0.16 85 / 0.5), 0 0 2px oklch(0.78 0.16 85 / 0.3)" } : {}),
           }}
         />
       </div>

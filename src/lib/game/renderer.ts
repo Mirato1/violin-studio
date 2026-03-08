@@ -108,10 +108,10 @@ export function drawBackground(ctx: CanvasRenderingContext2D, notation: Notation
 
   // Hit line with glow (only across lanes)
   ctx.save();
-  ctx.shadowColor = "rgba(210,180,120,0.5)";
-  ctx.shadowBlur = 10;
-  ctx.strokeStyle = "rgba(210,180,120,0.5)";
-  ctx.lineWidth = 2;
+  ctx.shadowColor = "rgba(210,180,120,0.6)";
+  ctx.shadowBlur = 12;
+  ctx.strokeStyle = "rgba(210,180,120,0.55)";
+  ctx.lineWidth = 2.5;
   ctx.beginPath();
   ctx.moveTo(LEFT_PANEL_WIDTH, HIT_LINE_Y);
   ctx.lineTo(CANVAS_WIDTH, HIT_LINE_Y);
@@ -197,7 +197,7 @@ export function drawNote(
               : 0.35 + 0.65 * ((y - FADE_TOP) / (FADE_FULL - FADE_TOP));
   }
   const r = NOTE_RADIUS;
-  const fontSize = 20;
+  const fontSize = 30;
 
   ctx.save();
   ctx.globalAlpha = noteAlpha;
@@ -241,19 +241,28 @@ export function drawNote(
   }
 
   // Draw note circle with radial gradient
-  const grad = ctx.createRadialGradient(x - 3, y - 3, 2, x, y, r);
+  if (note.state === "active") {
+    ctx.save();
+    ctx.shadowColor = color.glow;
+    ctx.shadowBlur = 18;
+  }
+  const grad = ctx.createRadialGradient(x - 4, y - 4, 3, x, y, r);
   grad.addColorStop(0, note.state === "active" ? "#f5e6c8" : color.glow);
-  grad.addColorStop(0.4, fillColor);
+  grad.addColorStop(0.35, fillColor);
   grad.addColorStop(1, note.state === "passed" ? color.faded : color.fill);
 
   ctx.fillStyle = grad;
   ctx.beginPath();
   ctx.arc(x, y, r, 0, Math.PI * 2);
   ctx.fill();
+  if (note.state === "active") {
+    ctx.restore();
+    ctx.globalAlpha = noteAlpha * alpha;
+  }
 
-  // Subtle border
-  ctx.strokeStyle = note.state === "active" ? "rgba(230,215,180,0.6)" : note.state === "upcoming" ? "rgba(230,215,180,0.3)" : "rgba(230,215,180,0.15)";
-  ctx.lineWidth = 1.5;
+  // Border
+  ctx.strokeStyle = note.state === "active" ? "rgba(230,215,180,0.7)" : note.state === "upcoming" ? "rgba(230,215,180,0.3)" : "rgba(230,215,180,0.15)";
+  ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.arc(x, y, r, 0, Math.PI * 2);
   ctx.stroke();
@@ -286,7 +295,7 @@ export function drawNote(
     ctx.fillText(label, x, y);
   } else {
     ctx.fillStyle = isAmber ? "rgba(26,16,0,0.4)" : "rgba(230,215,180,0.4)";
-    ctx.font = "bold 16px sans-serif";
+    ctx.font = "bold 24px sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillText(label, x, y);
@@ -312,10 +321,10 @@ export function drawNote(
     const by = y - ringR * 0.72;
     ctx.fillStyle = "rgba(15,10,5,0.9)";
     ctx.beginPath();
-    ctx.arc(bx, by, 10, 0, Math.PI * 2);
+    ctx.arc(bx, by, 14, 0, Math.PI * 2);
     ctx.fill();
     ctx.fillStyle = ringColor;
-    ctx.font = "bold 11px sans-serif";
+    ctx.font = "bold 14px sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillText(String(pos), bx, by);
@@ -599,7 +608,7 @@ function _drawNoteSequence(
     const distFromActive = Math.abs(i - activeIdx);
 
     const x = (i + 0.5) * (LEFT_PANEL_WIDTH / n);
-    const r = isActive ? 22 : 16;
+    const r = isActive ? 26 : 18;
 
     let alpha: number;
     if (activeIdx < 0) {
@@ -634,7 +643,7 @@ function _drawNoteSequence(
     const label = showFingers
       ? (note.finger === 0 ? "O" : String(note.finger))
       : toNotation(note.noteName.replace(/\d/, ""), notation);
-    ctx.font = `bold ${isActive ? 16 : 12}px sans-serif`;
+    ctx.font = `bold ${isActive ? 18 : 14}px sans-serif`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillText(label, x, STRIP_Y);
@@ -677,8 +686,8 @@ function _drawNoteSequence(
       if (note.slurEnd && slurStartIdx !== null) {
         const x1 = (slurStartIdx + 0.5) * (LEFT_PANEL_WIDTH / n);
         const x2 = (i + 0.5) * (LEFT_PANEL_WIDTH / n);
-        const arcR1 = slurStartIdx === activeIdx ? 22 : 16;
-        const arcR2 = i === activeIdx ? 22 : 16;
+        const arcR1 = slurStartIdx === activeIdx ? 26 : 18;
+        const arcR2 = i === activeIdx ? 26 : 18;
         const yBase = STRIP_Y + Math.max(arcR1, arcR2) + 4;
         const midX = (x1 + x2) / 2;
         const depth = Math.min(14, (x2 - x1) * 0.22 + 6);
@@ -874,11 +883,11 @@ export function drawEdgeFades(ctx: CanvasRenderingContext2D) {
   const BG = "#120e08";
 
   // Top fade — hides notes entering from the top
-  const topGrad = ctx.createLinearGradient(0, 0, 0, 60);
+  const topGrad = ctx.createLinearGradient(0, 0, 0, 70);
   topGrad.addColorStop(0, BG);
   topGrad.addColorStop(1, "rgba(18,14,8,0)");
   ctx.fillStyle = topGrad;
-  ctx.fillRect(lanesX, 0, lanesW, 60);
+  ctx.fillRect(lanesX, 0, lanesW, 70);
 
   // Echo zone — passed notes fade out gracefully below the hit line
   const echoGrad = ctx.createLinearGradient(0, HIT_LINE_Y, 0, HIT_LINE_Y + ECHO_ZONE);
@@ -897,9 +906,9 @@ export function drawEdgeFades(ctx: CanvasRenderingContext2D) {
     const s = STRINGS_ORDER[i];
     const color = STRING_COLORS[s];
     ctx.strokeStyle = color.faded;
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 2.5;
     ctx.beginPath();
-    ctx.arc(cx, HIT_LINE_Y, NOTE_RADIUS + 5, 0, Math.PI * 2);
+    ctx.arc(cx, HIT_LINE_Y, NOTE_RADIUS + 6, 0, Math.PI * 2);
     ctx.stroke();
   }
 }

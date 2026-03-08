@@ -42,7 +42,8 @@ export function findAllCandidates(midi: number): Candidate[] {
     const semiAbove = midi - open;
     if (semiAbove < 0 || semiAbove > 12) continue; // out of range for this string
 
-    for (const pos of [1, 3, 4] as const) {
+    const positions = s === "E" ? ([1, 3, 4] as const) : ([1] as const);
+    for (const pos of positions) {
       const base = POSITION_BASE[pos];
       for (const fd of FINGER_DELTAS) {
         if (base + fd.delta === semiAbove) {
@@ -84,8 +85,12 @@ export function findAllCandidates(midi: number): Candidate[] {
 }
 
 /**
- * Score a candidate based on musical context (position continuity, string proximity).
+ * Score a candidate based on position hierarchy and finger comfort.
  * Higher score = better choice.
+ *
+ * Philosophy: for a beginner app, 1st position is ALWAYS preferred unless
+ * the note literally can't be played there. Position hierarchy is the
+ * dominant factor; string/position continuity are just tiebreakers.
  */
 export function scoreCandidate(
   c: Candidate,
@@ -94,27 +99,28 @@ export function scoreCandidate(
 ): number {
   let score = 0;
 
-  // Preference for staying in the same position (moderate — shifts are normal in violin)
-  if (c.position === lastPosition) score += 30;
-  // Penalty for each position step of shift (low — position changes are routine)
-  else score -= Math.abs(c.position - lastPosition) * 8;
+  // ── DOMINANT: Prefer lower positions (1st > 3rd > 4th > higher) ──
+  if (c.position === 1) score += 40;
+  else if (c.position === 3) score += 20;
+  else if (c.position === 4) score += 10;
+  // position 5+ → 0
 
-  // String continuity is crucial — changing strings changes timbre
+  // ── Finger comfort ──
+  if (c.finger === 0) score += 25;       // open string — always best
+  else if (c.finger <= 2) score += 10;   // comfortable
+  else if (c.finger === 3) score += 5;   // fine
+  else score -= 20;                       // finger 4 — mild penalty (1st pos with f4 is standard)
+
+  // ── String continuity (tiebreaker) ──
   if (lastString) {
     const dist = Math.abs(STRING_IDX[c.string] - STRING_IDX[lastString]);
-    if (dist === 0) score += 40; // same string — strongly preferred
-    else if (dist === 1) score += 5; // adjacent
-    else score -= dist * 5; // far string crossing
+    if (dist === 0) score += 8;          // same string
+    else if (dist === 1) score += 2;     // adjacent
+    else score -= dist * 2;              // far crossing
   }
 
-  // Small bonus for lower positions (easier for beginners)
-  score -= c.position * 2;
-
-  // Prefer open strings — most resonant and easiest to play
-  if (c.finger === 0) score += 20;
-
-  // Penalize finger 4 — encourages position shifts for comfort
-  if (c.finger === 4) score -= 35;
+  // ── Position continuity (strong — prevents oscillation between positions) ──
+  if (c.position === lastPosition) score += 20;
 
   return score;
 }
@@ -145,41 +151,54 @@ export function bestFingerInPosition(midi: number, position: number): number {
  * Analyze the first N notes to determine the best starting position.
  * Picks the position where the most notes can be played with comfortable fingers.
  */
-export function chooseStartingPosition(midis: number[]): number {
-  let bestPos = 1, bestScore = -Infinity;
-  for (const pos of [1, 3, 4] as const) {
-    let score = 0;
-    for (const midi of midis) {
-      const f = bestFingerInPosition(midi, pos);
-      if (f === -1) score -= 15;
-      else if (f === 0) score += 30;
-      else if (f <= 3) score += 25;
-      else score += 5; // finger 4
-    }
-    score -= pos * 2; // slight lower-position preference
-    if (score > bestScore) { bestScore = score; bestPos = pos; }
-  }
-  return bestPos;
+export function chooseStartingPosition(_midis: number[]): number {
+  // For now, always start in 1st position.
+  // Higher positions are only used on the E string (determined per-note).
+  return 1;
 }
 
 /**
- * Score upcoming notes by finger quality in a given position.
- * Comfortable fingers (0-3) score much higher than finger 4.
+ * String-aware look-ahead: score upcoming notes specifically on the
+ * candidate's string and position. Unlike the old lookAheadBonus which
+ * checked ALL strings (causing wrong-string assignments), this only
+ * evaluates whether upcoming notes are reachable in the given position
+ * on the given string.
  */
-export function lookAheadBonus(position: number, upcomingMidis: number[]): number {
+export function stringAwareLookAhead(
+  str: ViolinString,
+  position: number,
+  upcomingMidis: number[],
+): number {
+  const open = OPEN_MIDI[str];
+  const base = POSITION_BASE[position];
   let bonus = 0;
+
   for (const midi of upcomingMidis) {
-    const f = bestFingerInPosition(midi, position);
-    if (f === -1) bonus -= 20;
-    else if (f === 0) bonus += 30;
-    else if (f <= 3) bonus += 25;
-    else bonus -= 15; // finger 4 — actively penalized
+    const semi = midi - open;
+
+    // Open string is always comfortable regardless of position
+    if (semi === 0) { bonus += 15; continue; }
+    // Out of range for this string — stop, a string change is forced
+    if (semi < 0 || semi > 12) { bonus -= 10; break; }
+
+    // Check if any finger delta matches in this position
+    let bestFinger = -1;
+    for (const fd of FINGER_DELTAS) {
+      if (base + fd.delta === semi) { bestFinger = fd.finger; break; }
+    }
+
+    if (bestFinger === -1) { bonus -= 15; break; } // unreachable — stop, position change forced
+    else if (bestFinger <= 3) bonus += 15;   // comfortable
+    else bonus -= 5;                          // finger 4
   }
+
   return bonus;
 }
 
 /**
  * Pick the best candidate for a MIDI note given musical context and upcoming notes.
+ * Uses string-aware look-ahead to anticipate position shifts (e.g., shift to 3rd
+ * position early when C6 is coming, rather than using finger 4 in 1st position).
  */
 export function pickBestCandidate(
   midi: number,
@@ -195,7 +214,7 @@ export function pickBestCandidate(
   for (const c of candidates) {
     let s = scoreCandidate(c, lastString, lastPosition);
     if (upcomingMidis.length > 0) {
-      s += lookAheadBonus(c.position, upcomingMidis);
+      s += stringAwareLookAhead(c.string, c.position, upcomingMidis);
     }
     if (s > bestScore) { bestScore = s; best = c; }
   }
@@ -216,6 +235,9 @@ export function smoothPositions(notes: GameNote[]): void {
     let changed = false;
 
     for (let i = 0; i < notes.length; i++) {
+      // Only smooth E string notes — other strings are always 1st position
+      if (notes[i].string !== "E") continue;
+
       const myPos = notes[i].position ?? 1;
 
       // Count positions in the surrounding window

@@ -14,7 +14,7 @@ import { CANVAS_WIDTH, CANVAS_HEIGHT, NOTE_RADIUS, LEAD_IN_SEC } from '@/lib/gam
 
 import { useAudioEngine } from '@/hooks/useAudioEngine'
 import { useNotation } from '@/contexts/NotationContext'
-import { Music, Gamepad2 } from 'lucide-react'
+import { Music, Gamepad2, ListMusic } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import GameControls from './GameControls'
 import SongSelector from './SongSelector'
@@ -56,6 +56,7 @@ export default function GameCanvas() {
   const [selectedTrackIndex, setSelectedTrackIndex] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [view, setView] = useState<'game' | 'score'>('game')
+  const [showPlaylist, setShowPlaylist] = useState(true)
   const { notation } = useNotation()
 
   const activePositionsRef = useRef<number[]>([])
@@ -709,7 +710,7 @@ export default function GameCanvas() {
   )
 
   return (
-    <div className='flex flex-col overflow-hidden gap-2' style={{ height: 'calc(100vh - 58px)' }}>
+    <div className='flex flex-col overflow-hidden' style={{ height: 'calc(100vh - 58px)' }}>
       {error && (
         <div className='shrink-0 px-4 py-1 text-sm text-destructive bg-destructive/10 border-b border-destructive/30'>
           {error}
@@ -725,33 +726,49 @@ export default function GameCanvas() {
             width={CANVAS_WIDTH}
             height={CANVAS_HEIGHT}
             className='block'
-            style={{ height: '100%', width: 'auto', maxWidth: '100%' }}
+            style={{ maxHeight: '100%', maxWidth: '100%', width: 'auto', height: 'auto' }}
           />
           {view === 'game' && playlist.length > 1 && (
-            <div className='absolute top-3 right-3 w-[220px] bg-card/95 border border-border rounded-lg shadow-lg backdrop-blur-sm overflow-hidden flex flex-col'>
-              <div className='px-3 py-2 border-b border-border flex items-center justify-between shrink-0'>
-                <p className='text-[10px] text-muted-foreground uppercase tracking-widest'>Playlist</p>
-                <p className='text-[10px] text-muted-foreground'>{playlistIndex + 1} / {playlist.length}</p>
-              </div>
-              <div className='playlist-scroll overflow-y-auto max-h-[320px]'>
-                {playlist.map((song, idx) => (
+            <div className='absolute top-3 right-3'>
+              {showPlaylist ? (
+                <div className='w-[180px] md:w-[220px] bg-card/80 border border-gold/15 rounded-lg shadow-lg backdrop-blur-md overflow-hidden flex flex-col max-h-[50%] md:max-h-[320px]'>
                   <button
-                    key={song.id}
-                    onClick={() => handleLoadSavedSong(song.id)}
-                    className={`flex items-center gap-2 w-full px-2 py-1.5 text-left transition-colors hover:bg-accent/60 ${idx === playlistIndex ? 'bg-accent' : ''}`}
+                    onClick={() => setShowPlaylist(false)}
+                    className='px-3 py-2 border-b border-gold/10 flex items-center justify-between shrink-0 hover:bg-gold/5 transition-colors'
                   >
-                    <div className={`shrink-0 rounded flex items-center justify-center text-[11px] font-bold text-white/70 ${PLAYLIST_THUMB_COLORS[idx % PLAYLIST_THUMB_COLORS.length]}`} style={{ width: 38, height: 28 }}>
-                      {song.title.charAt(0).toUpperCase()}
-                    </div>
-                    <div className='flex-1 min-w-0'>
-                      <p className={`text-xs leading-tight line-clamp-2 ${idx === playlistIndex ? 'font-semibold' : ''}`}>{song.title}</p>
-                      {song.durationSec != null && (
-                        <p className='text-[10px] text-muted-foreground mt-0.5'>{formatDuration(song.durationSec)}</p>
-                      )}
-                    </div>
+                    <p className='text-[10px] text-muted-foreground uppercase tracking-widest'>Playlist</p>
+                    <p className='text-[10px] text-muted-foreground'>{playlistIndex + 1} / {playlist.length}</p>
                   </button>
-                ))}
-              </div>
+                  <div className='playlist-scroll overflow-y-auto flex-1'>
+                    {playlist.map((song, idx) => (
+                      <button
+                        key={song.id}
+                        onClick={() => handleLoadSavedSong(song.id)}
+                        className={`flex items-center gap-2 w-full px-2 py-1.5 text-left transition-colors hover:bg-accent/60 ${idx === playlistIndex ? 'bg-accent' : ''}`}
+                      >
+                        <div className={`shrink-0 rounded flex items-center justify-center text-[11px] font-bold text-white/70 ${PLAYLIST_THUMB_COLORS[idx % PLAYLIST_THUMB_COLORS.length]}`} style={{ width: 42, height: 30 }}>
+                          {song.title.charAt(0).toUpperCase()}
+                        </div>
+                        <div className='flex-1 min-w-0'>
+                          <p className={`text-xs leading-tight line-clamp-2 ${idx === playlistIndex ? 'font-semibold' : ''}`}>{song.title}</p>
+                          {song.durationSec != null && (
+                            <p className='text-[10px] text-muted-foreground mt-0.5'>{formatDuration(song.durationSec)}</p>
+                          )}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setShowPlaylist(true)}
+                  className='flex items-center gap-1.5 rounded-full bg-card/80 border border-gold/15 backdrop-blur-md px-3 py-1.5 shadow-lg hover:bg-card/90 transition-colors'
+                  title='Show playlist'
+                >
+                  <ListMusic className='size-3.5 text-muted-foreground' />
+                  <span className='text-[10px] font-semibold text-muted-foreground'>{playlistIndex + 1}/{playlist.length}</span>
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -765,48 +782,66 @@ export default function GameCanvas() {
         )}
       </div>
 
-      {/* Unified bottom bar: controls | progress | song selector */}
-      <div className='shrink-0 flex items-center gap-3 border-t border-border bg-card/50 px-3 py-2'>
-        <Button
-          variant={view === 'score' ? 'secondary' : 'ghost'}
-          size='icon-sm'
-          onClick={() => setView((v) => v === 'game' ? 'score' : 'game')}
-          title={view === 'game' ? 'Show score' : 'Show game'}
-        >
-          {view === 'game' ? <Music className='size-4' /> : <Gamepad2 className='size-4' />}
-        </Button>
-        <div className='h-5 border-l border-border' />
-        <GameControls
-          status={status}
-          speed={speed}
-          volume={volume}
-          isMuted={isMuted}
-          showFingers={showFingers}
-          onPlayPause={handlePlayPause}
-          onRestart={handleRestart}
-          onSpeedChange={handleSpeedChange}
-          onVolumeChange={setVolume}
-          onMuteToggle={() => setIsMuted((m) => !m)}
-          onFingersToggle={() => setShowFingers((f) => !f)}
-        />
-        <div className='h-5 border-l border-border' />
-        <ProgressBar
-          getCurrentTime={() => currentTimeRef.current}
-          totalDuration={songRef.current?.durationSec ?? 0}
-          onSeek={handleSeek}
-          status={status}
-        />
-        <div className='h-5 border-l border-border' />
-        <SongSelector
-          currentSongTitle={currentSong?.title ?? ''}
-          onFileUpload={handleFileUpload}
-          onSelectSong={handleLoadSavedSong}
-          onDeleteSong={handleDeleteSong}
-          onTrackChange={handleTrackChange}
-          selectedSongId={selectedSongId}
-          availableTracks={availableTracks}
-          selectedTrackIndex={selectedTrackIndex}
-        />
+      {/* Bottom bar — responsive layout */}
+      <div className='shrink-0 border-t border-gold/15 bg-card/70 backdrop-blur-md px-3 py-2 flex flex-col gap-2'>
+        {/* Row 1: View toggle + Controls + Playlist toggle */}
+        <div className='flex items-center gap-2 sm:gap-3'>
+          <Button
+            variant={view === 'score' ? 'secondary' : 'ghost'}
+            size='icon-sm'
+            onClick={() => setView((v) => v === 'game' ? 'score' : 'game')}
+            title={view === 'game' ? 'Show score' : 'Show game'}
+          >
+            {view === 'game' ? <Music className='size-4' /> : <Gamepad2 className='size-4' />}
+          </Button>
+          <div className='h-5 border-l border-gold/15' />
+          <GameControls
+            status={status}
+            speed={speed}
+            volume={volume}
+            isMuted={isMuted}
+            showFingers={showFingers}
+            onPlayPause={handlePlayPause}
+            onRestart={handleRestart}
+            onSpeedChange={handleSpeedChange}
+            onVolumeChange={setVolume}
+            onMuteToggle={() => setIsMuted((m) => !m)}
+            onFingersToggle={() => setShowFingers((f) => !f)}
+          />
+          {playlist.length > 1 && view === 'game' && (
+            <>
+              <div className='h-5 border-l border-gold/15' />
+              <Button
+                variant={showPlaylist ? 'secondary' : 'ghost'}
+                size='icon-sm'
+                onClick={() => setShowPlaylist((v) => !v)}
+                title={showPlaylist ? 'Hide playlist' : 'Show playlist'}
+              >
+                <ListMusic className='size-4' />
+              </Button>
+            </>
+          )}
+        </div>
+        {/* Row 2: Progress bar + Song selector */}
+        <div className='flex items-center gap-3'>
+          <ProgressBar
+            getCurrentTime={() => currentTimeRef.current}
+            totalDuration={songRef.current?.durationSec ?? 0}
+            onSeek={handleSeek}
+            status={status}
+          />
+          <div className='h-5 border-l border-gold/15 hidden sm:block' />
+          <SongSelector
+            currentSongTitle={currentSong?.title ?? ''}
+            onFileUpload={handleFileUpload}
+            onSelectSong={handleLoadSavedSong}
+            onDeleteSong={handleDeleteSong}
+            onTrackChange={handleTrackChange}
+            selectedSongId={selectedSongId}
+            availableTracks={availableTracks}
+            selectedTrackIndex={selectedTrackIndex}
+          />
+        </div>
       </div>
     </div>
   )
