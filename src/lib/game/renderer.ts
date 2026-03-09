@@ -122,7 +122,11 @@ export function drawBackground(ctx: CanvasRenderingContext2D, notation: Notation
 
 const POS_LINE_LABELS: Record<number, string> = { 1: "1st", 3: "3rd", 4: "4th", 5: "5th", 6: "6th", 7: "7th" };
 
-/** Draw dashed horizontal lines where position changes occur between notes. */
+/** Draw dashed horizontal lines where position changes occur between notes.
+ *  Only tracks position changes among E string notes so that G/D/A notes
+ *  (always 1st position) don't cause repeated labels.
+ *  Also draws a persistent "current position" badge near the hit line.
+ */
 export function drawPositionLines(
   ctx: CanvasRenderingContext2D,
   notes: GameNote[],
@@ -130,16 +134,30 @@ export function drawPositionLines(
   const FADE_TOP = 60;
   const FADE_FULL = HIT_LINE_Y - 120;
 
-  let prevPos = notes.length > 0 ? (notes[0].position ?? 1) : 1;
+  // Find the initial E string position
+  let prevEPos = 1;
+  for (const n of notes) {
+    if (n.string === "E") { prevEPos = n.position ?? 1; break; }
+  }
 
+  // Determine current position (nearest E string note at or below hit line)
+  let currentPos = prevEPos;
+  for (const n of notes) {
+    if (n.string !== "E") continue;
+    if (n.y <= HIT_LINE_Y + 40) { currentPos = n.position ?? 1; break; }
+  }
+
+  // Draw position change lines — only when E string position actually changes
   for (let i = 1; i < notes.length; i++) {
     const note = notes[i];
-    const pos = note.position ?? 1;
-    if (pos === prevPos) { continue; }
+    if (note.string !== "E") continue; // skip non-E notes entirely
 
-    // Position changed — draw indicator at this note's y
+    const pos = note.position ?? 1;
+    if (pos === prevEPos) { prevEPos = pos; continue; }
+
+    // E string position changed — draw indicator at this note's y
     const y = note.y;
-    prevPos = pos;
+    prevEPos = pos;
 
     // Only draw if visible in play zone
     if (y < 10 || y > HIT_LINE_Y + 10) continue;
@@ -178,6 +196,38 @@ export function drawPositionLines(
     ctx.fill();
     ctx.fillStyle = color;
     ctx.fillText(label, CANVAS_WIDTH - 15, y);
+    ctx.restore();
+  }
+
+  // Persistent current-position badge (always visible near the hit line, right side)
+  if (currentPos > 1) {
+    const color = POSITION_COLORS[currentPos] ?? "rgba(200,200,200,0.85)";
+    const label = POS_LINE_LABELS[currentPos] ?? `${currentPos}th`;
+    const badgeY = HIT_LINE_Y + 28;
+
+    ctx.save();
+    ctx.font = "bold 14px sans-serif";
+    ctx.textAlign = "right";
+    ctx.textBaseline = "middle";
+    const labelW = ctx.measureText(label + " pos").width;
+    const pillW = labelW + 16;
+    const pillH = 24;
+    const pillX = CANVAS_WIDTH - pillW - 8;
+    const pillY = badgeY - pillH / 2;
+
+    ctx.fillStyle = "rgba(15,10,5,0.85)";
+    ctx.beginPath();
+    ctx.roundRect(pillX, pillY, pillW, pillH, 5);
+    ctx.fill();
+
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.roundRect(pillX, pillY, pillW, pillH, 5);
+    ctx.stroke();
+
+    ctx.fillStyle = color;
+    ctx.fillText(label + " pos", CANVAS_WIDTH - 16, badgeY);
     ctx.restore();
   }
 }
